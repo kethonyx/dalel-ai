@@ -271,6 +271,15 @@ def assign_video_worker(video_id: UUID, body: WorkerAssignment):
             "worker_id": str(body.worker_id) if body.worker_id else None}
 
 
+@app.get("/api/v1/workers", dependencies=[Depends(require_key)])
+def list_workers():
+    return {"items": [
+        {"worker_id": str(worker["id"]), "name": worker["name"],
+         "created_at": worker["created_at"].isoformat()}
+        for worker in db.list_workers()
+    ]}
+
+
 @app.post("/api/v1/workers/{worker_id}/videos", dependencies=[Depends(require_key)], status_code=202)
 async def upload_worker_video(worker_id: UUID, file: UploadFile = File(...)):
     if db.get_worker(worker_id) is None:

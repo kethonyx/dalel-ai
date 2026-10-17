@@ -127,7 +127,7 @@ function jumpTo(event) {
    {"worker_id":"0fdc4dfb-ef71-473e-958b-68efc6addf70","name":"Аида Садыкова","created_at":"2026-10-17T13:00:00+00:00"}
    ```
 
-3. `POST /api/v1/workers/{worker_id}/videos` принимает `multipart/form-data`, поле
+2. `POST /api/v1/workers/{worker_id}/videos` принимает `multipart/form-data`, поле
    `file`, сохраняет привязку и запускает анализ. Ответ `202` содержит
    `video_id`, `job_id`, `status`, `worker_id`.
 4. `GET /api/v1/workers/{worker_id}/videos?limit=100&offset=0` возвращает
