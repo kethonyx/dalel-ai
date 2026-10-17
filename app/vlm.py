@@ -12,7 +12,6 @@ from __future__ import annotations
 
 import base64
 import ipaddress
-import json
 import re
 import socket
 from urllib.parse import urlparse
@@ -30,7 +29,6 @@ YES_NO_SUFFIX = " Answer with one word: yes or no."
 # Qwen2.5-VL отдаёт пиксели входного изображения, Qwen3-VL — шкалу 0..1000.
 BOX_SCALE = config.VLM_BOX_SCALE
 
-_JSON_LIST_RE = re.compile(r"\[.*\]", re.S)
 
 
 class VLMError(RuntimeError):
@@ -65,29 +63,32 @@ def parse_yes_no(text: str) -> dict:
     return {"answer": answer, "reason": m.group(2).strip()[:200]}
 
 
+_BOX_RE = re.compile(r'"bbox_2d"\s*:\s*\[\s*([-\d.]+)\s*,\s*([-\d.]+)\s*,\s*([-\d.]+)\s*,\s*([-\d.]+)\s*\]')
+_LABEL_RE = re.compile(r'"label"\s*:\s*"([^"]*)"')
+
+
 def parse_boxes(text: str, width: int, height: int) -> list[dict]:
-    match = _JSON_LIST_RE.search(text or "")
-    if not match:
-        return []
-    try:
-        items = json.loads(match.group(0))
-    except json.JSONDecodeError:
-        return []
+    """Рамки из ответа модели. Регулярками, а не json.loads: ответ бывает обрезан или
+    с повторами, а первые рамки в нём при этом верные."""
+    text = text or ""
+    items = []
+    for m in _BOX_RE.finditer(text):
+        lab = None
+        for lm in _LABEL_RE.finditer(text, 0, m.start()):
+            lab = lm.group(1)
+        items.append((lab or "", [float(v) for v in m.groups()]))
     out = []
-    for it in items:
-        try:
-            x1, y1, x2, y2 = (float(v) for v in it["bbox_2d"])
-        except (KeyError, TypeError, ValueError):
-            continue
+    for label, (x1, y1, x2, y2) in items:
         sx, sy = (BOX_SCALE, BOX_SCALE) if BOX_SCALE else (width, height)
         box = (max(0.0, x1 / sx), max(0.0, y1 / sy), min(1.0, x2 / sx), min(1.0, y2 / sy))
         if box[2] > box[0] and box[3] > box[1]:
-            out.append({"label": str(it.get("label", "")), "box": box})
+            out.append({"label": label, "box": box})
     return out
 
 
 class StubBackend:
     name = "stub"
+    model_id = "stub"
 
     def ask(self, jpeg: bytes, question: str) -> dict:
         return {"answer": "unclear", "reason": "модель не подключена (stub)"}
@@ -101,11 +102,28 @@ class OpenAILocalBackend:
 
     name = "openai_local"
 
-    def __init__(self, base_url: str, model: str, timeout: float):
+    def __init__(self, base_url: str, model: str, timeout: float, api_key: str = ""):
         assert_local_url(base_url)
         self.base_url = base_url.rstrip("/")
         self.model = model
         self.timeout = timeout
+        self.headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
+        self._model_id: str | None = None
+
+    @property
+    def model_id(self) -> str:
+        """Имя реально загруженной модели (для ключа кэша): 4B на Mac и 30B на GPU-компьютере
+        слушают один и тот же 127.0.0.1:8080, их ответы смешивать нельзя."""
+        if self._model_id is None:
+            import httpx
+
+            try:
+                resp = httpx.get(f"{self.base_url}/models", headers=self.headers, timeout=10)
+                resp.raise_for_status()
+                self._model_id = resp.json()["data"][0]["id"]
+            except Exception as exc:
+                raise VLMError(f"Сервер модели недоступен: {exc}") from exc
+        return self._model_id
 
     def _chat(self, jpeg: bytes, text: str, max_tokens: int) -> str:
         import httpx  # импорт здесь, чтобы заглушка работала без httpx
@@ -124,7 +142,8 @@ class OpenAILocalBackend:
             ],
         }
         try:
-            resp = httpx.post(f"{self.base_url}/chat/completions", json=payload, timeout=self.timeout)
+            resp = httpx.post(f"{self.base_url}/chat/completions", json=payload, headers=self.headers,
+                              timeout=self.timeout)
             resp.raise_for_status()
             return resp.json()["choices"][0]["message"]["content"]
         except Exception as exc:  # сеть, формат ответа, таймаут
@@ -134,10 +153,14 @@ class OpenAILocalBackend:
         return parse_yes_no(self._chat(jpeg, question + YES_NO_SUFFIX, 4))
 
     def ground(self, jpeg: bytes, labels: list[str], width: int, height: int) -> list[dict]:
-        names = ", ".join(f'"{l}"' for l in labels)
-        text = (f"Locate these objects: {names}. Output a JSON list of "
-                '{"label": ..., "bbox_2d": [x1, y1, x2, y2]}. Omit objects that are not visible.')
-        return parse_boxes(self._chat(jpeg, text, 300), width, height)
+        # По одному объекту за запрос: длинный JSON-список квантованная 30B зацикливает
+        # (повторяет "bbox_2d" до лимита токенов), короткий ответ из 4 чисел надёжен.
+        out = []
+        for label in labels:
+            text = (f'Locate the {label} in the image. Output only JSON {{"bbox_2d": [x1, y1, x2, y2]}}, '
+                    'or {"bbox_2d": []} if it is not visible.')
+            out += [dict(b, label=label) for b in parse_boxes(self._chat(jpeg, text, 40), width, height)[:1]]
+        return out
 
 
 _backend = None
@@ -149,10 +172,15 @@ def get_backend():
         if config.VLM_BACKEND == "stub":
             _backend = StubBackend()
         elif config.VLM_BACKEND == "openai_local":
-            _backend = OpenAILocalBackend(config.VLM_BASE_URL, config.VLM_MODEL, config.VLM_TIMEOUT_SEC)
+            _backend = OpenAILocalBackend(config.VLM_BASE_URL, config.VLM_MODEL, config.VLM_TIMEOUT_SEC,
+                                          config.VLM_API_KEY)
         else:
             raise VLMError(f"Неизвестный VLM_BACKEND: {config.VLM_BACKEND!r}")
     return _backend
+
+
+def model_id() -> str:
+    return get_backend().model_id
 
 
 def ask(jpeg: bytes, question: str) -> dict:
