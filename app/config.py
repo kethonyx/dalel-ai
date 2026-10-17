@@ -45,6 +45,8 @@ VLM_BACKEND = os.getenv("VLM_BACKEND", "stub")
 VLM_BASE_URL = os.getenv("VLM_BASE_URL", "http://127.0.0.1:8080/v1")
 VLM_MODEL = os.getenv("VLM_MODEL", "local")
 VLM_TIMEOUT_SEC = float(os.getenv("VLM_TIMEOUT_SEC", "60"))
+# Ключ сервера модели (llama-server --api-key-file). Нужен, когда модель на отдельном GPU-компьютере.
+VLM_API_KEY = os.getenv("VLM_API_KEY", "")
 # Шкала координат рамок в ответе модели: 1000 для Qwen3-VL, 0 = пиксели входного кадра (Qwen2.5-VL).
 VLM_BOX_SCALE = float(os.getenv("VLM_BOX_SCALE", "1000"))
 

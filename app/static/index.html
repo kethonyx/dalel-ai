@@ -35,6 +35,22 @@
   .frames figcaption { color: var(--muted); font-size: 12px; margin-top: 2px; }
   .err { margin-top: 20px; padding: 16px; border-radius: 12px; border:1px solid var(--bad); background: rgba(229,83,75,.1); }
   button { background: var(--accent); color:#fff; border:0; border-radius: 8px; padding: 8px 16px; font-size: 15px; cursor:pointer; margin-top: 12px; }
+  .live { margin-top: 14px; border-top: 1px solid var(--line); padding-top: 12px; }
+  .live-top { display:flex; gap: 14px; flex-wrap: wrap; align-items: flex-start; }
+  .live-top img { max-width: 100%; width: 300px; border-radius: 8px; border:1px solid var(--line); display:block; }
+  .live-now { flex: 1 1 220px; font-size: 13px; }
+  .live-now .t { color: var(--muted); margin-bottom: 4px; }
+  .chip { display:inline-block; border-radius: 6px; padding: 1px 7px; margin: 0 4px 4px 0; background: var(--line); color: var(--muted); }
+  .chip.y { background: rgba(46,166,106,.25); color: var(--text); border: 1px solid var(--ok); }
+  .live-ev { margin-top: 8px; }
+  .live-ev .chip { background: rgba(229,83,75,.18); color: var(--text); border:1px solid var(--bad); }
+  .lgrid { overflow-x: auto; margin-top: 10px; }
+  .lgrid table { border-collapse: collapse; font-size: 11px; }
+  .lgrid th { text-align: right; font-weight: 400; color: var(--muted); padding-right: 6px; white-space: nowrap; }
+  .lgrid td { width: 12px; height: 12px; padding: 0; border: 1px solid var(--bg); }
+  .lgrid td.y { background: var(--ok); } .lgrid td.n { background: var(--line); } .lgrid td.u { background: #b08800; }
+  .lgrid td.ev { background: var(--bad); }
+  .live-note { color: var(--muted); font-size: 12px; margin-top: 6px; }
 </style>
 </head>
 <body>
@@ -51,6 +67,18 @@
   <div id="status" class="status hidden">
     <div id="stage">Загрузка…</div>
     <div class="bar"><i id="bar"></i></div>
+    <div id="live" class="live hidden">
+      <div class="live-top">
+        <img id="live-img" alt="Что сейчас видит модель">
+        <div class="live-now">
+          <div class="t" id="live-t"></div>
+          <div id="live-ans"></div>
+          <div class="live-ev" id="live-ev"></div>
+        </div>
+      </div>
+      <div class="lgrid" id="live-grid"></div>
+      <div class="live-note">Живой просмотр: фрагмент кадра, который получила модель, и её ответы. Найденное до конца анализа — предварительно.</div>
+    </div>
   </div>
   <div id="result"></div>
 </main>
@@ -117,16 +145,70 @@ function render(data) {
   result.replaceChildren(...nodes);
 }
 
+// ---- живой просмотр: что модель видит и отвечает по кадрам ----
+const live = { rows: [], probes: [], events: [] };
+function resetLive() { live.rows = []; live.probes = []; live.events = []; $("live").classList.add("hidden"); }
+
+function drawLive(d) {
+  if (!d.active) return;
+  live.probes = d.probes;
+  live.rows = live.rows.concat(d.rows).sort((a, b) => a.t - b.t);
+  live.events = d.events;
+  $("live").classList.remove("hidden");
+  if (d.preview) $("live-img").src = "data:image/jpeg;base64," + d.preview;
+  const last = live.rows.find((r) => r.t === d.preview_t) || live.rows[live.rows.length - 1];
+  $("live-t").textContent = last ? "Кадр " + fmt(last.t) + " · проанализировано кадров: " + live.rows.length : "";
+  const ans = $("live-ans"); ans.replaceChildren();
+  if (last) for (const p of live.probes) {
+    const a = last.a[p.id];
+    if (a === undefined) continue;
+    ans.append(el("span", "chip" + (a === "yes" ? " y" : ""), p.title + (a === "yes" ? " ✓" : "")));
+  }
+  const ev = $("live-ev"); ev.replaceChildren();
+  for (const e of live.events) ev.append(el("span", "chip", fmt(e.t) + " " + e.type));
+  // сетка «вопрос × кадр»
+  const evTimes = live.events.map((e) => e.t);
+  const tbl = document.createElement("table");
+  const top = document.createElement("tr");
+  top.append(el("th", null, ""));
+  for (const r of live.rows) {
+    const c = document.createElement("td");
+    if (evTimes.some((t) => Math.abs(t - r.t) < 0.6)) c.className = "ev";
+    c.title = fmt(r.t);
+    top.append(c);
+  }
+  tbl.append(top);
+  for (const p of live.probes) {
+    const tr = document.createElement("tr");
+    tr.append(el("th", null, p.title));
+    for (const r of live.rows) {
+      const a = r.a[p.id], c = document.createElement("td");
+      c.className = a === "yes" ? "y" : a === "no" ? "n" : a === "unclear" ? "u" : "";
+      c.title = fmt(r.t) + " — " + p.title + ": " + (a || "не спрашивали");
+      tr.append(c);
+    }
+    tbl.append(tr);
+  }
+  $("live-grid").replaceChildren(tbl);
+}
+
 async function poll(jobId) {
+  resetLive();
   for (;;) {
     await new Promise((r) => setTimeout(r, 1500));
     let res;
     try { res = await fetch("/ui/jobs/" + jobId); } catch { continue; }
     if (!res.ok) return showError("Ошибка сервера: " + res.status);
     const data = await res.json();
-    if (data.status === "processing") setStage(data.stage || "Обработка…", data.progress || 0);
+    if (data.status === "processing") {
+      setStage(data.stage || "Обработка…", data.progress || 0);
+      try {
+        const lr = await fetch("/ui/jobs/" + jobId + "/live?since=" + live.rows.length);
+        if (lr.ok) drawLive(await lr.json());
+      } catch {}
+    }
     else if (data.status === "failed") return showError("Не удалось обработать видео: " + data.error);
-    else return render(data);
+    else { resetLive(); return render(data); }
   }
 }
 

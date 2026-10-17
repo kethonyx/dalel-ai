@@ -146,12 +146,13 @@ def find_zones(frames: list[dict], zone_cfg: dict) -> dict:
 # ------------------------------------------------------------------ probes ---
 
 class AnswerCache:
-    def __init__(self, root: Path):
+    def __init__(self, root: Path, model: str):
         self.root = root
+        self.model = model.encode()
         self.root.mkdir(parents=True, exist_ok=True)
 
     def _path(self, jpeg: bytes, question: str) -> Path:
-        h = hashlib.sha1(jpeg + b"\0" + question.encode() + b"\0" + config.VLM_MODEL.encode()).hexdigest()
+        h = hashlib.sha1(jpeg + b"\0" + question.encode() + b"\0" + self.model).hexdigest()
         return self.root / h[:2] / f"{h}.json"
 
     def get(self, jpeg: bytes, question: str) -> dict | None:
@@ -200,7 +201,8 @@ def probe_frame(fr: dict, idx: int, probes: list[dict], zones: dict, cache: Answ
                 cache.put(jpeg, pr["question"], res)
         answers[pr["id"]] = res["answer"]
         reasons[pr["id"]] = res["reason"]
-    return {"t": fr["t"], "a": answers, "r": reasons}
+    preview = to_jpeg(crop_frac(img, zones["zone"]), 360)  # для живого просмотра в интерфейсе
+    return {"t": fr["t"], "a": answers, "r": reasons}, preview
 
 
 def fill_sparse(timeline: list[dict], probes: list[dict]) -> None:
@@ -269,14 +271,18 @@ def build_result(job_id: str, video: Path, events: list[rule_engine.Event]) -> d
     }
 
 
+FrameFn = Callable[[dict, bytes], None]
+
+
 def analyze_video(job_id: str, video: Path, progress: ProgressFn | None = None,
-                  rules_path: Path | None = None) -> dict:
+                  rules_path: Path | None = None, on_frame: FrameFn | None = None) -> dict:
+    """on_frame(row, preview_jpeg) вызывается после каждого кадра — для живого просмотра."""
     progress = progress or (lambda stage, frac: None)
     deadline = time.monotonic() + config.TIME_BUDGET_SEC
     progress("Чтение видео", 0.02)
     duration = probe_duration(video)
     cfg = load_rules(rules_path)
-    cache = AnswerCache(config.CACHE_DIR)
+    cache = AnswerCache(config.CACHE_DIR, vlm.model_id())
 
     with tempfile.TemporaryDirectory(prefix="frames_") as tmp:
         progress("Нарезка кадров", 0.05)
@@ -295,10 +301,12 @@ def analyze_video(job_id: str, video: Path, progress: ProgressFn | None = None,
                 i, fr = i_fr
                 if time.monotonic() > deadline:
                     return None  # бюджет времени исчерпан: отдаём то, что успели
-                row = probe_frame(fr, i, cfg["probes"], zones, cache)
+                row, preview = probe_frame(fr, i, cfg["probes"], zones, cache)
                 with lock:
                     done[0] += 1
                     progress("Анализ кадров", 0.1 + 0.75 * done[0] / len(frames))
+                if on_frame:
+                    on_frame(row, preview)
                 return row
 
             with ThreadPoolExecutor(max(1, config.VLM_PARALLEL)) as ex:
