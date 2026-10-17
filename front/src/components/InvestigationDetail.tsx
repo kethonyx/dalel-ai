@@ -90,7 +90,7 @@ export function InvestigationDetail({ item, onClose }: { item: InvestigationDeta
               </section>
 
               <section className="case-review-panel" aria-labelledby="review-title">
-                <div className="case-section-title"><div><span className="micro-label">HUMAN REVIEW</span><h3 id="review-title">Review decision</h3></div><span className={`review-save-status${review.savedAt ? ' saved' : ''}`}>{review.savedAt ? 'Saved locally' : 'Unsaved changes'}</span></div>
+                <div className="case-section-title"><div><span className="micro-label">HUMAN REVIEW</span><h3 id="review-title">Review decision</h3></div><span className={`review-save-status${review.savedAt ? ' saved' : ''}`}>{review.savedAt ? 'Saved' : 'Unsaved changes'}</span></div>
                 <label className="review-field"><span><UserRound size={13} /> Assign employee</span><select value={review.employeeId} onChange={(event) => updateReview({ employeeId: event.target.value })}><option value="">Unassigned</option>{employees.map((employee) => <option value={employee.id} key={employee.id}>{employee.name}</option>)}</select></label>
                 <label className="review-field"><span><MessageSquareText size={13} /> Reviewer comment</span><textarea value={review.comment} onChange={(event) => updateReview({ comment: event.target.value })} placeholder="Add context for this review" rows={3} /></label>
                 <button className="button-primary save-review-button" type="button" onClick={handleSave}><CheckCircle2 size={14} /> Save review</button>
