@@ -8,7 +8,7 @@ import time
 import unittest
 from pathlib import Path
 from unittest.mock import patch
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from fastapi.testclient import TestClient
 
@@ -79,6 +79,7 @@ class SavedVideoAPI(unittest.TestCase):
                         self.assertEqual(frames[0]["analysis"]["answers"]["probe"], "yes")
                         metadata = client.get(f"/api/v1/videos/{video_id}", headers=headers).json()
                         self.assertEqual(metadata["job_id"], job_id)
+                        self.assertIsNone(metadata["worker_id"])
                         listed = client.get("/api/v1/videos", headers=headers).json()["items"]
                         self.assertIn(video_id, [item["video_id"] for item in listed])
 
@@ -94,6 +95,65 @@ class SavedVideoAPI(unittest.TestCase):
                     if video_id is not None:
                         with db.connection() as conn:
                             conn.execute("DELETE FROM videos WHERE id = %s", (UUID(video_id),))
+
+    def test_worker_video_upload_and_listing(self):
+        def fake_analyze(job_id, path, progress, on_frame=None):
+            return {"job_id": job_id, "status": "done", "verdict": "no_violation",
+                    "violations": [], "_debug": {"timeline": []}}
+
+        worker_ids = []
+        video_id = None
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            with patch.object(config, "DATA_DIR", root), patch.object(config, "VIDEOS_DIR", root / "videos"), \
+                 patch.object(config, "DATABASE_URL", os.environ["TEST_DATABASE_URL"]), \
+                 patch("app.main.pipeline.probe_duration", return_value=2.0), \
+                 patch("app.main.pipeline.analyze_video", side_effect=fake_analyze), \
+                 patch("app.main.db.requeue_unfinished", return_value=[]):
+                try:
+                    with TestClient(app) as client:
+                        headers = {"X-API-Key": config.API_KEY}
+                        self.assertEqual(client.post("/api/v1/new-worker", json={"name": "Кассир"}).status_code, 401)
+                        self.assertEqual(client.post("/api/v1/new-worker", headers=headers,
+                                                     json={"name": "   "}).status_code, 422)
+                        for name in ("Кассир А", "Кассир Б"):
+                            response = client.post("/api/v1/new-worker", headers=headers,
+                                                   json={"name": f"  {name}  "})
+                            self.assertEqual(response.status_code, 201, response.text)
+                            self.assertEqual(response.json()["name"], name)
+                            worker_ids.append(UUID(response.json()["worker_id"]))
+
+                        missing = uuid4()
+                        self.assertEqual(client.get(f"/api/v1/workers/{missing}/videos",
+                                                    headers=headers).status_code, 404)
+                        self.assertEqual(client.post(f"/api/v1/workers/{missing}/videos", headers=headers,
+                                                     files={"file": ("clip.mov", b"video", "video/quicktime")}).status_code, 404)
+                        self.assertFalse((root / "videos").exists())
+
+                        uploaded = client.post(f"/api/v1/workers/{worker_ids[0]}/videos", headers=headers,
+                                               files={"file": ("clip.mov", b"video", "video/quicktime")})
+                        self.assertEqual(uploaded.status_code, 202, uploaded.text)
+                        self.assertEqual(uploaded.json()["worker_id"], str(worker_ids[0]))
+                        video_id = UUID(uploaded.json()["video_id"])
+                        for _ in range(100):
+                            result = client.get(f"/api/v1/jobs/{uploaded.json()['job_id']}", headers=headers).json()
+                            if result["status"] == "done":
+                                break
+                            time.sleep(0.02)
+                        self.assertEqual(result["status"], "done", result)
+                        self.assertEqual(db.get_video(video_id)["worker_id"], worker_ids[0])
+                        listing = client.get(f"/api/v1/workers/{worker_ids[0]}/videos", headers=headers).json()
+                        self.assertEqual(listing["worker_id"], str(worker_ids[0]))
+                        self.assertEqual([item["video_id"] for item in listing["items"]], [str(video_id)])
+                        self.assertEqual(listing["items"][0]["worker_id"], str(worker_ids[0]))
+                        other = client.get(f"/api/v1/workers/{worker_ids[1]}/videos", headers=headers).json()
+                        self.assertEqual(other["items"], [])
+                finally:
+                    with db.connection() as conn:
+                        if video_id is not None:
+                            conn.execute("DELETE FROM videos WHERE id = %s", (video_id,))
+                        for worker_id in worker_ids:
+                            conn.execute("DELETE FROM worker WHERE id = %s", (worker_id,))
 
     @unittest.skipUnless(shutil.which("ffmpeg") and shutil.which("ffprobe"), "нужны ffmpeg и ffprobe")
     def test_real_mov_through_jury_api(self):

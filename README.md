@@ -24,7 +24,13 @@ Compose поднимает PostgreSQL на `127.0.0.1:5433`, создаёт ба
 локальной разработки; при другом `POSTGRES_PASSWORD` задайте соответствующий
 `DATABASE_URL=postgresql://dalel:<пароль>@127.0.0.1:5433/dalel` для приложения.
 Скрипт инициализации выполняется **только при первом запуске с пустым volume**;
-изменения схемы существующей базы нужно применять отдельно.
+для уже созданного volume примените миграцию работников один раз:
+
+```bash
+docker compose exec -T db psql -U dalel -d dalel -v ON_ERROR_STOP=1 < db/migrations/001_worker.sql
+```
+
+Миграция сохраняет старые видео; у них `worker_id = NULL`.
 
 Интерфейс: http://127.0.0.1:8000 . Проверка API (как у жюри):
 
@@ -55,6 +61,9 @@ curl http://127.0.0.1:8000/api/v1/jobs/3f2a9c1e -H "X-API-Key: $API_KEY"
 | `GET` | `/api/v1/videos/{video_id}/frames` | JSON ответов модели для выбранных кадров |
 | `POST` | `/api/v1/videos/{video_id}/analyze` | вернуть существующий результат; `?force=true` запускает повторный анализ |
 | `GET` | `/api/v1/videos/{video_id}/stream` | исходный файл; `Range` для перемотки |
+| `POST` | `/api/v1/new-worker` | создать работника по JSON `{"name":"..."}` |
+| `POST` | `/api/v1/workers/{worker_id}/videos` | загрузить видео работника и запустить анализ |
+| `GET` | `/api/v1/workers/{worker_id}/videos` | список видео работника |
 
 `stream` принимает `X-API-Key` либо подписанную ссылку из метаданных видео
 (срок действия — один час). Доступность `.mov` в браузере зависит от кодека;
