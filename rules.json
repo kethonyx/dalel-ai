@@ -258,7 +258,7 @@
         "url": "https://adilet.zan.kz/rus/docs/V1900019680",
         "verified": true
       },
-      "missing_min_frames": 2
+      "missing_min_frames": 1
     },
     {
       "id": "bag_without_document",
@@ -283,7 +283,7 @@
         "url": "https://adilet.zan.kz/rus/docs/V1900019680",
         "verified": true
       },
-      "missing_min_frames": 2
+      "missing_min_frames": 1
     },
     {
       "id": "extra_person",
