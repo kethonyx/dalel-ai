@@ -34,7 +34,7 @@
       "id": "eating_now",
       "title": "Пьёт / ест",
       "crop": "zone",
-      "every": 1,
+      "every": 2,
       "question": "Is the employee drinking or eating right now (a cup, bottle or food raised to the mouth)?"
     },
     {
@@ -69,24 +69,6 @@
       "question": "Is one person passing banknotes or a bag to another person across the desk right now?"
     },
     {
-      "id": "id_shown",
-      "title": "Удостоверение",
-      "crop": "zone",
-      "when": {
-        "visitor": "yes"
-      },
-      "question": "Is someone holding up or handing over a small plastic ID card or document (not banknotes)?"
-    },
-    {
-      "id": "bag",
-      "title": "Инкассаторская сумка",
-      "crop": "zone",
-      "when": {
-        "visitor": "yes"
-      },
-      "question": "Is a green cash-collection bag visible?"
-    },
-    {
       "id": "screen_unlocked",
       "title": "Экран не заблокирован",
       "crop": "zone",
@@ -94,6 +76,30 @@
         "cashier_seated": "no"
       },
       "question": "Does the laptop screen show an open program, document or spreadsheet (not black and not a lock screen with a picture)?"
+    },
+    {
+      "id": "held_object",
+      "title": "Что в руках",
+      "crop": "zone",
+      "when": {
+        "visitor": "yes"
+      },
+      "question": "Look at the hands of the people at the desk. What is someone holding up, showing or passing across the desk right now? Tell them apart carefully: banknotes are several thin paper bills (blue, green, beige or orange), often fanned out, stacked or counted; an ID card is ONE small stiff white plastic card with a photo, held flat and shown.",
+      "options": {
+        "nothing": "nothing in hands",
+        "banknotes": "banknotes",
+        "id_card": "an ID card",
+        "cash_bag": "a green cash-collection bag",
+        "phone": "a phone",
+        "other": "something else"
+      },
+      "note": "Вопрос с выбором вместо yes/no про удостоверение: на 19 размеченных кадрах 15/19 против 14/19 (Qwen3-VL-8B). На отдельном кропе стола 16/19, но это лишняя картинка (~2 с) на кадр."
+    },
+    {
+      "id": "cash_in_machine",
+      "title": "Деньги в машинке",
+      "crop": "zone",
+      "question": "Are banknotes inside or being fed into the banknote counting machine right now?"
     },
     {
       "id": "person_in_room",
@@ -238,10 +244,10 @@
       },
       "trigger": {
         "cash_handover": "yes",
-        "bag": "no"
+        "held_object": "banknotes"
       },
       "missing": {
-        "id_shown": "yes"
+        "held_object": "id_card"
       },
       "type": "Приём наличных без предъявления документа",
       "observation": "Посетитель передаёт наличные, до этого документ, удостоверяющий личность, не предъявлялся",
@@ -251,7 +257,8 @@
         "section": "п. 19, пп. 1",
         "url": "https://adilet.zan.kz/rus/docs/V1900019680",
         "verified": true
-      }
+      },
+      "missing_min_frames": 2
     },
     {
       "id": "bag_without_document",
@@ -262,10 +269,10 @@
       },
       "trigger": {
         "cash_handover": "yes",
-        "bag": "yes"
+        "held_object": "cash_bag"
       },
       "missing": {
-        "id_shown": "yes"
+        "held_object": "id_card"
       },
       "type": "Приём инкассаторской сумки без проверки документов",
       "observation": "Инкассаторская сумка передана кассиру без предъявления документа",
@@ -275,7 +282,8 @@
         "section": "п. 24",
         "url": "https://adilet.zan.kz/rus/docs/V1900019680",
         "verified": true
-      }
+      },
+      "missing_min_frames": 2
     },
     {
       "id": "extra_person",
@@ -347,6 +355,57 @@
       "source": {
         "document": "Правила осуществления кассовых операций… (постановление Правления НБРК от 29.11.2019 № 231)",
         "section": "п. 12",
+        "url": "https://adilet.zan.kz/rus/docs/V1900019680",
+        "verified": true
+      }
+    },
+    {
+      "id": "cash_not_machine_counted",
+      "enabled": true,
+      "kind": "missing_after",
+      "session": {
+        "visitor": "yes"
+      },
+      "trigger": {
+        "cash_handover": "yes",
+        "held_object": "banknotes"
+      },
+      "missing": {
+        "cash_in_machine": "yes"
+      },
+      "window_after_sec": 5,
+      "type": "Наличные приняты без пересчёта на оборудовании",
+      "observation": "Посетитель передал наличные, до конца обслуживания они не пересчитывались в счётной машинке",
+      "why": "Банкноты принимаются с полистным пересчётом и проверкой подлинности на оборудовании.",
+      "source": {
+        "document": "Правила осуществления кассовых операций… (постановление Правления НБРК от 29.11.2019 № 231)",
+        "section": "п. 19, пп. 2; п. 41",
+        "url": "https://adilet.zan.kz/rus/docs/V1900019680",
+        "verified": true
+      }
+    },
+    {
+      "id": "count_after_client_left",
+      "enabled": true,
+      "kind": "after_session",
+      "session": {
+        "visitor": "yes"
+      },
+      "require": {
+        "cash_handover": "yes"
+      },
+      "after": {
+        "visitor": "no",
+        "cash_in_machine": "yes"
+      },
+      "window_sec": 10,
+      "min_frames": 2,
+      "type": "Пересчёт наличных в отсутствие клиента",
+      "observation": "Посетитель ушёл, а принятые у него наличные ещё пересчитываются",
+      "why": "Наличные принимаются и пересчитываются в присутствии клиента.",
+      "source": {
+        "document": "Правила осуществления кассовых операций… (постановление Правления НБРК от 29.11.2019 № 231)",
+        "section": "п. 20, абз. 1",
         "url": "https://adilet.zan.kz/rus/docs/V1900019680",
         "verified": true
       }

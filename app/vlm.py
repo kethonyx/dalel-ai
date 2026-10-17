@@ -86,9 +86,28 @@ def parse_boxes(text: str, width: int, height: int) -> list[dict]:
     return out
 
 
+def choice_prompt(question: str, options: dict[str, str]) -> str:
+    """options: {"banknotes": "banknotes", ...} -> текст с буквами A), B)..."""
+    letters = "ABCDEFGH"
+    lines = " ".join(f"{letters[i]}) {text}" for i, text in enumerate(options.values()))
+    return f"{question} {lines}. Answer with one letter."
+
+
+def parse_choice(text: str, options: dict[str, str]) -> str:
+    """Буква ответа -> ключ варианта; ничего не распознали -> "unclear"."""
+    keys = list(options)
+    m = re.search(r"\b([A-H])\b", (text or "").upper())
+    if not m or "ABCDEFGH".index(m.group(1)) >= len(keys):
+        return "unclear"
+    return keys["ABCDEFGH".index(m.group(1))]
+
+
 class StubBackend:
     name = "stub"
     model_id = "stub"
+
+    def ask_choice(self, jpeg: bytes, question: str, options: dict[str, str]) -> dict:
+        return {"answer": "unclear", "reason": "модель не подключена (stub)"}
 
     def ask(self, jpeg: bytes, question: str) -> dict:
         return {"answer": "unclear", "reason": "модель не подключена (stub)"}
@@ -152,6 +171,10 @@ class OpenAILocalBackend:
     def ask(self, jpeg: bytes, question: str) -> dict:
         return parse_yes_no(self._chat(jpeg, question + YES_NO_SUFFIX, 4))
 
+    def ask_choice(self, jpeg: bytes, question: str, options: dict[str, str]) -> dict:
+        raw = self._chat(jpeg, choice_prompt(question, options), 3)
+        return {"answer": parse_choice(raw, options), "reason": ""}
+
     def ground(self, jpeg: bytes, labels: list[str], width: int, height: int) -> list[dict]:
         # По одному объекту за запрос: длинный JSON-список квантованная 30B зацикливает
         # (повторяет "bbox_2d" до лимита токенов), короткий ответ из 4 чисел надёжен.
@@ -185,6 +208,11 @@ def model_id() -> str:
 
 def ask(jpeg: bytes, question: str) -> dict:
     return get_backend().ask(jpeg, question)
+
+
+def ask_choice(jpeg: bytes, question: str, options: dict[str, str]) -> dict:
+    """ask_choice(кадр, вопрос, {ключ: текст варианта}) -> {"answer": ключ | "unclear", ...}"""
+    return get_backend().ask_choice(jpeg, question, options)
 
 
 def ground(jpeg: bytes, labels: list[str], width: int, height: int) -> list[dict]:

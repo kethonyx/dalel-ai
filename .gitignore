@@ -8,3 +8,4 @@ eval_out/
 .claude/
 eval_30b/
 .env
+eval_8b/

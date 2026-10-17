@@ -56,12 +56,13 @@
 const $ = (id) => document.getElementById(id);
 const el = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text !== undefined) n.textContent = text; return n; };
 const fmt = (s) => Math.floor(s / 60) + ":" + (s % 60).toFixed(1).padStart(4, "0");
-let lastUpdated = 0;
+let lastUpdated = 0, baseSub = "";
 
 function draw(d) {
   lastUpdated = d.updated;
   $("title").textContent = "Прогон вживую: " + d.video;
-  $("sub").textContent = "Ролик " + d.index + " из " + d.total + " · проанализировано кадров: " + d.rows.length;
+  baseSub = "Ролик " + d.index + " из " + d.total + " · проанализировано кадров: " + d.rows.length;
+  $("sub").textContent = baseSub;
   $("bar").style.width = Math.round(100 * (d.index - 1) / d.total) + "%";
   $("img").src = "data:image/jpeg;base64," + d.preview;
   const last = d.rows.find((r) => r.t === d.preview_t) || d.rows[d.rows.length - 1];
@@ -116,8 +117,8 @@ async function tick() {
       const d = await r.json();
       if (d.updated !== lastUpdated) draw(d);
       const age = Date.now() / 1000 - d.updated;
-      if (age > 60) { $("sub").textContent += " · нет новых кадров " + Math.round(age) + " с"; $("sub").classList.add("stale"); }
-      else $("sub").classList.remove("stale");
+      if (age > 60) { $("sub").textContent = baseSub + " · нет новых кадров " + Math.round(age) + " с"; $("sub").classList.add("stale"); }
+      else { $("sub").textContent = baseSub; $("sub").classList.remove("stale"); }
     }
   } catch {}
   setTimeout(tick, 1000);
