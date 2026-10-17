@@ -35,6 +35,20 @@ def get_worker(worker_id: UUID) -> dict | None:
                             (worker_id,)).fetchone()
 
 
+def list_workers(limit: int = 100, offset: int = 0) -> list[dict]:
+    with connection() as conn:
+        return conn.execute("""SELECT w.id, w.name, w.created_at, COUNT(v.id)::int AS video_count
+            FROM worker w LEFT JOIN videos v ON v.worker_id = w.id
+            GROUP BY w.id ORDER BY w.created_at DESC, w.id DESC
+            LIMIT %s OFFSET %s""", (limit, offset)).fetchall()
+
+
+def set_video_worker(video_id: UUID, worker_id: UUID | None) -> bool:
+    with connection() as conn:
+        return conn.execute("UPDATE videos SET worker_id = %s WHERE id = %s",
+                            (worker_id, video_id)).rowcount == 1
+
+
 def add_video(video_id: UUID, storage_key: str, original_name: str, media_type: str,
               size_bytes: int, duration_sec: float, worker_id: UUID | None = None) -> None:
     with connection() as conn:
