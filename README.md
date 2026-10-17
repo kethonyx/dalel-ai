@@ -13,6 +13,7 @@
 docker compose up -d --wait db
 python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
+brew install ffmpeg                                 # macOS; ffmpeg и ffprobe нужны backend
 
 export API_KEY="придумайте-длинный-ключ"            # Windows: set API_KEY=...
 uvicorn app.main:app --host 0.0.0.0 --port 8000
@@ -32,7 +33,19 @@ docker compose exec -T db psql -U dalel -d dalel -v ON_ERROR_STOP=1 < db/migrati
 
 Миграция сохраняет старые видео; у них `worker_id = NULL`.
 
-Интерфейс: http://127.0.0.1:8000 . Проверка API (как у жюри):
+FastAPI: http://127.0.0.1:8000 . В отдельном терминале запустите React-интерфейс:
+
+```bash
+cd front
+npm install
+npm run dev
+```
+
+Откройте http://127.0.0.1:5173 . Vite проксирует `/ui/*` и подписанные ссылки
+видео к FastAPI на порту 8000. Фронтенд загружает видео через `/ui/analyze`,
+по `job_id` опрашивает статус анализа и не отправляет `API_KEY` в браузер.
+
+Проверка API (как у жюри):
 
 ```bash
 curl -X POST http://127.0.0.1:8000/api/v1/analyze -H "X-API-Key: $API_KEY" -F "file=@video_017.mov"
@@ -68,8 +81,10 @@ curl http://127.0.0.1:8000/api/v1/jobs/3f2a9c1e -H "X-API-Key: $API_KEY"
 `stream` принимает `X-API-Key` либо подписанную ссылку из метаданных видео
 (срок действия — один час). Доступность `.mov` в браузере зависит от кодека;
 API отдаёт исходный файл без перекодирования. История хранится, пока видео и записи
-не удалены администратором. Веб-интерфейс пока показывает только последний загруженный
-ролик; экран каталога и плеер можно подключить к этим маршрутам отдельно.
+не удалены администратором. Веб-интерфейс загружает ролики через `/ui/analyze`,
+показывает задания из этого браузера во вкладке Investigations и воспроизводит их
+по подписанным ссылкам. До появления браузерной авторизации список всего каталога
+в этом интерфейсе недоступен; пары `video_id`/`job_id` сохраняются в `localStorage`.
 
 ## Подключение модели (локально)
 

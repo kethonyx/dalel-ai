@@ -115,26 +115,31 @@ function jumpTo(event) {
 
 ### Работники и их видео
 
-Эти маршруты требуют `X-API-Key`. В текущем React-фронте список сотрудников и
-назначения пока локальные; UUID из этих маршрутов к нему ещё не подключены.
+Эти маршруты требуют `X-API-Key`. Браузерный фронтенд должен вызывать их через
+серверный прокси, который добавляет ключ. Не включайте `API_KEY` в клиентскую сборку.
 
-1. `POST /api/v1/new-worker` с JSON `{"name":"Аида Садыкова"}` создаёт работника.
+1. `GET /api/v1/workers?limit=100&offset=0` возвращает `items` работников с
+   `worker_id`, `name`, `created_at` и количеством привязанных видео (`video_count`).
+2. `POST /api/v1/new-worker` с JSON `{"name":"Аида Садыкова"}` создаёт работника.
    Ответ `201`:
 
    ```json
    {"worker_id":"0fdc4dfb-ef71-473e-958b-68efc6addf70","name":"Аида Садыкова","created_at":"2026-10-17T13:00:00+00:00"}
    ```
 
-2. `POST /api/v1/workers/{worker_id}/videos` принимает `multipart/form-data`, поле
+3. `POST /api/v1/workers/{worker_id}/videos` принимает `multipart/form-data`, поле
    `file`, сохраняет привязку и запускает анализ. Ответ `202` содержит
    `video_id`, `job_id`, `status`, `worker_id`.
-3. `GET /api/v1/workers/{worker_id}/videos?limit=100&offset=0` возвращает
+4. `GET /api/v1/workers/{worker_id}/videos?limit=100&offset=0` возвращает
    `{"worker_id":"...","items":[...]}`. У каждого видео есть `worker_id`.
    Список пуст, если работник существует, но записей нет. Неизвестный UUID — `404`.
+5. `PATCH /api/v1/videos/{video_id}/worker` с JSON `{"worker_id":"..."}`
+   привязывает существующее видео к работнику. Передайте `{"worker_id":null}`,
+   чтобы снять привязку. Неизвестное видео или работник — `404`.
 
 Обычные загрузки через `/api/v1/videos`, `/api/v1/analyze` и `/ui/analyze` остаются
-без привязки (`worker_id: null`). `worker_id` в метаданных и общем списке видео
-тоже может быть `null` для старых записей.
+без привязки (`worker_id: null`), пока видео не назначат работнику. `worker_id` в
+метаданных и общем списке видео может быть `null` для старых записей.
 
 `GET /api/v1/videos/{video_id}` и элементы списка имеют форму:
 

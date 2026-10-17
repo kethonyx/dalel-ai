@@ -100,6 +100,10 @@ class WorkerCreate(BaseModel):
     name: str
 
 
+class WorkerAssignment(BaseModel):
+    worker_id: UUID | None = None
+
+
 def _valid_key(key: str | None) -> bool:
     return key is not None and secrets.compare_digest(key.encode(), config.API_KEY.encode())
 
@@ -246,6 +250,25 @@ def new_worker(body: WorkerCreate):
     worker = db.add_worker(uuid4(), name)
     return {"worker_id": str(worker["id"]), "name": worker["name"],
             "created_at": worker["created_at"].isoformat()}
+
+
+@app.get("/api/v1/workers", dependencies=[Depends(require_key)])
+def list_workers(limit: int = Query(100, ge=1, le=100), offset: int = Query(0, ge=0)):
+    return {"items": [{"worker_id": str(worker["id"]), "name": worker["name"],
+                       "created_at": worker["created_at"].isoformat(),
+                       "video_count": worker["video_count"]}
+                      for worker in db.list_workers(limit, offset)]}
+
+
+@app.patch("/api/v1/videos/{video_id}/worker", dependencies=[Depends(require_key)])
+def assign_video_worker(video_id: UUID, body: WorkerAssignment):
+    if db.get_video(video_id) is None:
+        raise HTTPException(status_code=404, detail="Video not found")
+    if body.worker_id is not None and db.get_worker(body.worker_id) is None:
+        raise HTTPException(status_code=404, detail="Worker not found")
+    db.set_video_worker(video_id, body.worker_id)
+    return {"video_id": str(video_id),
+            "worker_id": str(body.worker_id) if body.worker_id else None}
 
 
 @app.post("/api/v1/workers/{worker_id}/videos", dependencies=[Depends(require_key)], status_code=202)
