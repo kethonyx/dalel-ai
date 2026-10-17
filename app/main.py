@@ -1,7 +1,9 @@
 """Загрузка видео, сохранённый анализ и API для жюри и плеера."""
 from __future__ import annotations
 
-import json
+import base64
+import hashlib
+import hmac
 import logging
 import os
 import queue
@@ -18,15 +20,15 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.concurrency import run_in_threadpool
 
-from . import config, pipeline
+from . import config, db, pipeline, rules as rule_engine
 
 log = logging.getLogger("cashier")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 STATIC_DIR = Path(__file__).parent / "static"
 
-_jobs: dict[str, dict] = {}
-_jobs_lock = threading.Lock()
-_queue: "queue.Queue[str]" = queue.Queue()
+_live: dict[UUID, dict] = {}
+_live_lock = threading.Lock()
+_queue: queue.Queue[UUID] = queue.Queue()
 
 
 def _video_file(video: dict) -> Path:
@@ -50,10 +52,22 @@ def _worker() -> None:
             def progress(stage: str, frac: float) -> None:
                 db.set_progress(run_id, stage, frac)
 
-            result = pipeline.analyze_video(job_id, video, progress)
-            fields = {k: v for k, v in result.items() if k != "job_id"}
-            _update(job_id, **fields, stage="Готово", progress=1.0)
-            log.info("job %s done in %.1fs, verdict=%s", job_id, time.monotonic() - started, result["verdict"])
+            live = {"rows": [], "preview": None, "preview_t": None}
+            with _live_lock:
+                _live[run_id] = live
+
+            def on_frame(row: dict, preview: bytes) -> None:
+                with _live_lock:
+                    live["rows"].append({"t": row["t"], "a": row["a"]})
+                    live["preview"] = base64.b64encode(preview).decode()
+                    live["preview_t"] = row["t"]
+
+            result = pipeline.analyze_video(str(run_id), _video_file(video), progress,
+                                            on_frame=on_frame)
+            frames = result.pop("_debug", {}).get("timeline", [])
+            db.finish_run(run_id, result, frames)
+            log.info("job %s done in %.1fs, verdict=%s", run_id,
+                     time.monotonic() - started, result["verdict"])
         except Exception as exc:
             log.exception("job %s failed", run_id)
             try:
@@ -61,8 +75,8 @@ def _worker() -> None:
             except Exception:
                 log.exception("could not record failure for job %s", run_id)
         finally:
-            with _jobs_lock:
-                _live.pop(job_id, None)  # живой просмотр нужен только во время обработки
+            with _live_lock:
+                _live.pop(run_id, None)  # живой просмотр нужен только во время обработки
             _queue.task_done()
 
 
@@ -289,20 +303,22 @@ if config.UI_OPEN:
         return _job_view(job_id, include_video=True)
 
     @app.get("/ui/jobs/{job_id}/live")
-    def ui_job_live(job_id: str, since: int = 0):
+    def ui_job_live(job_id: UUID, since: int = Query(0, ge=0)):
         """Живой просмотр: что модель видит сейчас и что ответила по кадрам.
 
         since — сколько строк клиент уже получил; отдаём только новые.
         События пересчитываются по накопленным ответам (предварительно, без дозаполнения).
         """
         cfg = pipeline.load_rules()
-        with _jobs_lock:
+        with _live_lock:
             live = _live.get(job_id)
             if live is None:
                 return {"active": False}
-            rows = sorted(live["rows"], key=lambda r: r["t"])
+            rows = list(live["rows"])
             preview, preview_t = live["preview"], live["preview_t"]
-        events = rule_engine.evaluate(rows, cfg["rules"], config.MERGE_GAP_SEC, config.MAX_EVENTS_PER_RULE)
+        ordered_rows = sorted(rows, key=lambda r: r["t"])
+        events = rule_engine.evaluate(ordered_rows, cfg["rules"],
+                                      config.MERGE_GAP_SEC, config.MAX_EVENTS_PER_RULE)
         return {
             "active": True,
             "probes": [{"id": p["id"], "title": p.get("title", p["id"])} for p in cfg["probes"]],

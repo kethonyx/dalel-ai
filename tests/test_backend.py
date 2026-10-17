@@ -3,6 +3,7 @@ import os
 import shutil
 import subprocess
 import tempfile
+import threading
 import time
 import unittest
 from pathlib import Path
@@ -18,8 +19,15 @@ from app.main import app
 @unittest.skipUnless(os.getenv("TEST_DATABASE_URL"), "нужен TEST_DATABASE_URL")
 class SavedVideoAPI(unittest.TestCase):
     def test_upload_result_reopen_and_seek(self):
-        def fake_analyze(job_id, path, progress):
+        frame_ready = threading.Event()
+        continue_analyze = threading.Event()
+
+        def fake_analyze(job_id, path, progress, on_frame=None):
             progress("Анализ кадров", 0.5)
+            on_frame({"t": 1.25, "a": {"probe": "yes"}}, b"preview")
+            on_frame({"t": 0.5, "a": {"probe": "no"}}, b"preview")
+            frame_ready.set()
+            continue_analyze.wait(2)
             return {
                 "job_id": job_id, "status": "done", "verdict": "violation",
                 "violations": [{"type": "Тестовое событие", "timecode_sec": 1.25,
@@ -46,6 +54,17 @@ class SavedVideoAPI(unittest.TestCase):
                         self.assertEqual(uploaded.status_code, 202, uploaded.text)
                         video_id = uploaded.json()["video_id"]
                         job_id = uploaded.json()["job_id"]
+                        self.assertTrue(frame_ready.wait(2), "анализ не начался")
+                        live = client.get(f"/ui/jobs/{job_id}/live").json()
+                        self.assertTrue(live["active"])
+                        self.assertEqual(live["rows"], [
+                            {"t": 1.25, "a": {"probe": "yes"}},
+                            {"t": 0.5, "a": {"probe": "no"}},
+                        ])
+                        later = client.get(f"/ui/jobs/{job_id}/live?since=1").json()
+                        self.assertEqual(later["rows"], [{"t": 0.5, "a": {"probe": "no"}}])
+                        self.assertEqual(live["preview"], "cHJldmlldw==")
+                        continue_analyze.set()
                         for _ in range(100):
                             result = client.get(f"/api/v1/jobs/{job_id}", headers=headers).json()
                             if result["status"] == "done":
@@ -71,6 +90,7 @@ class SavedVideoAPI(unittest.TestCase):
                         self.assertEqual(reopened["job_id"], job_id)
                         analyzer.assert_called_once()
                 finally:
+                    continue_analyze.set()
                     if video_id is not None:
                         with db.connection() as conn:
                             conn.execute("DELETE FROM videos WHERE id = %s", (UUID(video_id),))
