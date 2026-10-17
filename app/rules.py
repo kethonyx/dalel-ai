@@ -13,7 +13,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 SESSION_GAP_SEC = 3.0   # разрыв, после которого сессия посетителя считается новой
-MISSING_GRACE_SEC = 1.0  # документ, показанный сразу после передачи, ещё засчитывается
+SESSION_MIN_FRAMES = 3  # визит короче — вспышка модели (человек за стеклом), а не клиент
+MISSING_GRACE_SEC = 2.5  # документ, показанный сразу после передачи (клиент держит оба), ещё засчитывается
 
 
 @dataclass
@@ -59,9 +60,12 @@ def _merge(runs: list[list[dict]], gap: float) -> list[list[dict]]:
 def eval_state(frames: list[dict], rule: dict, merge_gap: float) -> list[Event]:
     step = _step(frames)
     events = []
+    # min_frames: на длинных видео кадры редкие (шаг > 2 с), и один кадр «да» уже покрывал
+    # бы min_sec — одиночный ответ модели не должен давать нарушение
+    need = int(rule.get("min_frames", 2))
     for run in _merge(_runs(frames, rule["all"]), merge_gap):
         span = run[-1]["t"] - run[0]["t"] + step
-        if span + 1e-6 < float(rule.get("min_sec", 0)):
+        if span + 1e-6 < float(rule.get("min_sec", 0)) or len(run) < need:
             continue
         times = sorted({round(run[0]["t"], 2), round(run[len(run) // 2]["t"], 2), round(run[-1]["t"], 2)})
         events.append(Event(rule, run[0]["t"], times))
@@ -69,7 +73,7 @@ def eval_state(frames: list[dict], rule: dict, merge_gap: float) -> list[Event]:
 
 
 def eval_missing_before(frames: list[dict], rule: dict) -> list[Event]:
-    sessions = _merge(_runs(frames, rule["session"]), SESSION_GAP_SEC)
+    sessions = _sessions(frames, rule["session"], int(rule.get("session_min_frames", SESSION_MIN_FRAMES)))
     events = []
     for sess in sessions:
         trig = next((fr for fr in sess if matches(fr["a"], rule["trigger"])), None)
@@ -79,8 +83,10 @@ def eval_missing_before(frames: list[dict], rule: dict) -> list[Event]:
         # missing_min_frames: одиночный ответ модели не засчитываем — купюры в руке
         # иногда принимаются за удостоверение на одном кадре из нескольких
         need = int(rule.get("missing_min_frames", 1))
-        seen = sum(matches(fr["a"], rule["missing"]) for fr in frames
-                   if start <= fr["t"] <= trig["t"] + MISSING_GRACE_SEC) >= need
+        # missing_anywhere: документ засчитывается в любой момент визита (инкассатор держит сумку
+        # с порога, и модель видит «передачу» раньше, чем он показывает удостоверение — Х-16)
+        end = sess[-1]["t"] if rule.get("missing_anywhere") else trig["t"] + MISSING_GRACE_SEC
+        seen = sum(matches(fr["a"], rule["missing"]) for fr in frames if start <= fr["t"] <= end) >= need
         if not seen:
             idx = sess.index(trig)
             times = [round(fr["t"], 2) for fr in sess[max(0, idx - 1): idx + 2]]
@@ -88,8 +94,9 @@ def eval_missing_before(frames: list[dict], rule: dict) -> list[Event]:
     return events
 
 
-def _sessions(frames: list[dict], cond: dict) -> list[list[dict]]:
-    return _merge(_runs(frames, cond), SESSION_GAP_SEC)
+def _sessions(frames: list[dict], cond: dict, min_frames: int = SESSION_MIN_FRAMES) -> list[list[dict]]:
+    """Визиты посетителя. Короче min_frames кадров — не визит: модель «мигает» на людях за стеклом."""
+    return [s for s in _merge(_runs(frames, cond), SESSION_GAP_SEC) if len(s) >= min_frames]
 
 
 def eval_missing_after(frames: list[dict], rule: dict) -> list[Event]:

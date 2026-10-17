@@ -232,6 +232,16 @@ def probe_frame(fr: dict, idx: int, probes: list[dict], zones: dict, cache: Answ
     return {"t": fr["t"], "a": answers, "r": reasons}, preview
 
 
+def coarse_to_fine(frames: list[dict]) -> list[tuple[int, dict]]:
+    """Порядок обработки: сначала каждый 2-й кадр, потом остальные.
+
+    Если бюджет времени кончится, недоанализированными останутся промежуточные кадры по всему
+    видео, а не весь его конец. Индекс кадра сохраняется (от него зависит `every`).
+    """
+    order = list(range(0, len(frames), 2)) + list(range(1, len(frames), 2))
+    return [(i, frames[i]) for i in order]
+
+
 def fill_sparse(timeline: list[dict], probes: list[dict]) -> None:
     """Вопросы с every > 1 задаются не на каждом кадре: переносим последний ответ вперёд."""
     for pr in probes:
@@ -337,7 +347,8 @@ def analyze_video(job_id: str, video: Path, progress: ProgressFn | None = None,
                 return row
 
             with ThreadPoolExecutor(max(1, config.VLM_PARALLEL)) as ex:
-                timeline = [r for r in ex.map(work, enumerate(frames)) if r is not None]
+                rows = [r for r in ex.map(work, coarse_to_fine(frames)) if r is not None]
+            timeline = sorted(rows, key=lambda r: r["t"])
             fill_sparse(timeline, cfg["probes"])
 
         events = rule_engine.evaluate(timeline, cfg["rules"], config.MERGE_GAP_SEC, config.MAX_EVENTS_PER_RULE)

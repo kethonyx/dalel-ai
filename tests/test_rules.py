@@ -36,13 +36,14 @@ class MissingBefore(unittest.TestCase):
 
     def test_single_document_frame_not_enough_when_two_required(self):
         rule = dict(MISSING, missing_min_frames=2)
-        one = tl({"v": "yes", "d": "yes"}, {"v": "yes", "h": "yes"})
+        one = tl({"v": "yes"}, {"v": "yes", "d": "yes"}, {"v": "yes", "h": "yes"})
         two = tl({"v": "yes", "d": "yes"}, {"v": "yes", "d": "yes"}, {"v": "yes", "h": "yes"})
         self.assertEqual(len(rules.evaluate(one, [rule])), 1)
         self.assertEqual(rules.evaluate(two, [rule]), [])
 
     def test_document_from_previous_session_does_not_count(self):
-        frames = tl({"v": "yes", "d": "yes"}, *[{"v": "no"}] * 5, {"v": "yes"}, {"v": "yes", "h": "yes"})
+        frames = tl({"v": "yes", "d": "yes"}, {"v": "yes"}, {"v": "yes"}, *[{"v": "no"}] * 5,
+                    {"v": "yes"}, {"v": "yes"}, {"v": "yes", "h": "yes"})
         self.assertEqual(len(rules.evaluate(frames, [MISSING])), 1)
 
 
@@ -68,8 +69,8 @@ class MissingAfter(unittest.TestCase):
 
 class AfterSession(unittest.TestCase):
     def test_count_continues_after_client_left(self):
-        frames = tl({"v": "yes", "h": "yes"}, {"v": "yes"}, {"v": "no", "m": "yes"}, {"v": "no", "m": "yes"})
-        self.assertEqual([e.t for e in rules.evaluate(frames, [LEFT])], [2.0])
+        frames = tl({"v": "yes", "h": "yes"}, {"v": "yes"}, {"v": "yes"}, {"v": "no", "m": "yes"}, {"v": "no", "m": "yes"})
+        self.assertEqual([e.t for e in rules.evaluate(frames, [LEFT])], [3.0])
 
     def test_count_finished_before_leaving_ok(self):
         frames = tl({"v": "yes", "h": "yes"}, {"v": "yes", "m": "yes"}, {"v": "no"}, {"v": "no"})
@@ -78,6 +79,24 @@ class AfterSession(unittest.TestCase):
     def test_no_handover_in_session_ignored(self):
         frames = tl({"v": "yes"}, {"v": "no", "m": "yes"}, {"v": "no", "m": "yes"})
         self.assertEqual(rules.evaluate(frames, [LEFT]), [])
+
+
+class CoarseToFine(unittest.TestCase):
+    def test_even_frames_first_and_indices_kept(self):
+        from app import pipeline
+        frames = [{"t": float(i)} for i in range(5)]
+        self.assertEqual([i for i, _ in pipeline.coarse_to_fine(frames)], [0, 2, 4, 1, 3])
+        self.assertTrue(all(fr["t"] == i for i, fr in pipeline.coarse_to_fine(frames)))
+
+
+class Flicker(unittest.TestCase):
+    def test_single_frame_state_ignored_even_with_sparse_frames(self):
+        frames = tl({"x": "no"}, {"x": "yes"}, {"x": "no"}, step=2.5)  # один кадр «да» при шаге 2,5 с
+        self.assertEqual(rules.evaluate(frames, [STATE]), [])
+
+    def test_visitor_blip_is_not_a_session(self):
+        frames = tl({"v": "no"}, {"v": "yes", "h": "yes"}, {"v": "no"}, {"v": "no"})
+        self.assertEqual(rules.evaluate(frames, [MISSING]), [])
 
 
 class Dedupe(unittest.TestCase):
