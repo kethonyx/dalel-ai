@@ -91,6 +91,7 @@ function applyJobStatus(item: InvestigationItem, job: UiJobResponse): Investigat
     stage: job.stage ?? (job.status === 'done' ? 'Analysis complete' : job.status === 'failed' ? 'Analysis failed' : item.stage),
     progress: job.progress ?? (job.status === 'done' ? 1 : item.progress),
     streamUrl: job.stream_url ?? item.streamUrl,
+    posterUrl: job.poster_url ?? item.posterUrl,
     verdict: job.verdict ?? (job.status === 'done' && job.violations ? (job.violations.length ? 'violation' : 'no_violation') : item.verdict),
     violationCount: job.violations?.length ?? item.violationCount,
     violations: job.violations ?? item.violations,
@@ -110,6 +111,7 @@ function persistInvestigations(items: InvestigationItem[]) {
     stage: item.stage,
     progress: item.progress,
     streamUrl: item.streamUrl,
+    posterUrl: item.posterUrl,
     verdict: item.verdict,
     violationCount: item.violationCount,
     error: item.error,
@@ -298,6 +300,7 @@ function InvestigationGrid({
                   <InvestigationPoster
                     jobId={item.jobId}
                     source={item.streamUrl ?? ''}
+                    posterSource={item.posterUrl ?? ''}
                     file={item.file}
                     evidenceFrame={violation ? item.violations[0]?.evidence_frames[0]?.image_base64 : undefined}
                     fallback={<span className="record-film-icon"><Film size={20} strokeWidth={1.5} /></span>}
@@ -468,6 +471,7 @@ function App() {
       stage: '',
       progress: 0,
       streamUrl: video.streamUrl,
+      posterUrl: video.posterUrl ?? null,
       verdict: null,
       violationCount: 0,
       error: null,
@@ -561,6 +565,7 @@ function App() {
         stage: 'В очереди',
         progress: 0,
         streamUrl: null,
+        posterUrl: null,
         verdict: null,
         violationCount: 0,
         error: null,

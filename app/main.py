@@ -120,6 +120,13 @@ def _signed_stream_url(video_id: UUID) -> str:
     return f"/api/v1/videos/{video_id}/stream?expires={expires}&signature={signature}"
 
 
+def _signed_poster_url(video_id: UUID) -> str:
+    expires = int(time.time()) + 3600
+    payload = f"poster:{video_id}:{expires}".encode()
+    signature = hmac.new(config.API_KEY.encode(), payload, hashlib.sha256).hexdigest()
+    return f"/api/v1/videos/{video_id}/poster?expires={expires}&signature={signature}"
+
+
 def _stream_authorized(request: Request, video_id: UUID,
                        expires: int | None, signature: str | None) -> bool:
     if _valid_key(request.headers.get("X-API-Key")):
@@ -127,6 +134,17 @@ def _stream_authorized(request: Request, video_id: UUID,
     if expires is None or signature is None or expires < time.time():
         return False
     expected = hmac.new(config.API_KEY.encode(), f"{video_id}:{expires}".encode(),
+                        hashlib.sha256).hexdigest()
+    return secrets.compare_digest(signature, expected)
+
+
+def _poster_authorized(request: Request, video_id: UUID,
+                       expires: int | None, signature: str | None) -> bool:
+    if _valid_key(request.headers.get("X-API-Key")):
+        return True
+    if expires is None or signature is None or expires < time.time():
+        return False
+    expected = hmac.new(config.API_KEY.encode(), f"poster:{video_id}:{expires}".encode(),
                         hashlib.sha256).hexdigest()
     return secrets.compare_digest(signature, expected)
 
@@ -157,6 +175,10 @@ async def _store_video(file: UploadFile, worker_id: UUID | None = None) -> dict:
         except pipeline.VideoError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         os.replace(temp, dest)
+        try:
+            await run_in_threadpool(pipeline.extract_poster, dest, folder / "poster.jpg", duration)
+        except pipeline.VideoError as exc:
+            log.warning("could not create preview for video %s: %s", video_id, exc)
         media_type = "video/mp4" if ext in {".mp4", ".m4v"} else "video/quicktime"
         storage_key = str(dest.relative_to(config.DATA_DIR))
         await run_in_threadpool(db.add_video, video_id, storage_key, original_name,
@@ -167,6 +189,7 @@ async def _store_video(file: UploadFile, worker_id: UUID | None = None) -> dict:
     except Exception:
         temp.unlink(missing_ok=True)
         dest.unlink(missing_ok=True)
+        (folder / "poster.jpg").unlink(missing_ok=True)
         folder.rmdir()
         raise
 
@@ -199,7 +222,8 @@ def _job_view(job_id: UUID, include_video: bool = False) -> dict:
                 "stage": run["stage"], "progress": run["progress"]}
     if include_video:
         view = {**view, "video_id": str(run["video_id"]),
-                "stream_url": _signed_stream_url(run["video_id"])}
+                "stream_url": _signed_stream_url(run["video_id"]),
+                "poster_url": _signed_poster_url(run["video_id"])}
     return view
 
 
@@ -216,7 +240,8 @@ def _video_view(video: dict) -> dict:
             "latest_completed_job_id": str(completed["id"] if completed else video.get("latest_completed_run_id"))
             if completed or video.get("latest_completed_run_id") else None,
             "analysis_status": status,
-            "stream_url": _signed_stream_url(video["id"])}
+            "stream_url": _signed_stream_url(video["id"]),
+            "poster_url": _signed_poster_url(video["id"])}
 
 
 def _selected_run(video_id: UUID, run_id: UUID | None) -> dict | None:
@@ -269,15 +294,6 @@ def assign_video_worker(video_id: UUID, body: WorkerAssignment):
     db.set_video_worker(video_id, body.worker_id)
     return {"video_id": str(video_id),
             "worker_id": str(body.worker_id) if body.worker_id else None}
-
-
-@app.get("/api/v1/workers", dependencies=[Depends(require_key)])
-def list_workers():
-    return {"items": [
-        {"worker_id": str(worker["id"]), "name": worker["name"],
-         "created_at": worker["created_at"].isoformat()}
-        for worker in db.list_workers()
-    ]}
 
 
 @app.post("/api/v1/workers/{worker_id}/videos", dependencies=[Depends(require_key)], status_code=202)
@@ -350,6 +366,24 @@ def stream_video(video_id: UUID, request: Request,
         raise HTTPException(status_code=404, detail="Video not found")
     return FileResponse(_video_file(video), media_type=video["media_type"],
                         filename=video["original_name"], content_disposition_type="inline")
+
+
+@app.get("/api/v1/videos/{video_id}/poster")
+def video_poster(video_id: UUID, request: Request,
+                 expires: int | None = None, signature: str | None = None):
+    if not _poster_authorized(request, video_id, expires, signature):
+        raise HTTPException(status_code=401, detail="Invalid preview access token")
+    video = db.get_video(video_id)
+    if video is None or not _video_file(video).is_file():
+        raise HTTPException(status_code=404, detail="Video not found")
+    poster = _video_file(video).with_name("poster.jpg")
+    if not poster.is_file():
+        try:
+            pipeline.extract_poster(_video_file(video), poster, video["duration_sec"])
+        except pipeline.VideoError as exc:
+            log.warning("could not create preview for video %s: %s", video_id, exc)
+            raise HTTPException(status_code=415, detail="Could not decode a preview frame from this video") from exc
+    return FileResponse(poster, media_type="image/jpeg", headers={"Cache-Control": "private, max-age=300"})
 
 
 @app.get("/health")
