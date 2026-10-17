@@ -123,6 +123,12 @@ class SavedVideoAPI(unittest.TestCase):
                             self.assertEqual(response.json()["name"], name)
                             worker_ids.append(UUID(response.json()["worker_id"]))
 
+                        self.assertEqual(client.get("/api/v1/workers").status_code, 401)
+                        workers = client.get("/api/v1/workers", headers=headers).json()["items"]
+                        created = [item for item in workers if UUID(item["worker_id"]) in worker_ids]
+                        self.assertEqual([item["name"] for item in created], ["Кассир А", "Кассир Б"])
+                        self.assertTrue(all(item["created_at"] for item in created))
+
                         missing = uuid4()
                         self.assertEqual(client.get(f"/api/v1/workers/{missing}/videos",
                                                     headers=headers).status_code, 404)
