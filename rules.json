@@ -42,7 +42,7 @@
       "title": "Личные вещи",
       "crop": "zone",
       "every": 2,
-      "question": "Is a coat, jacket, scarf or a personal handbag lying on the desk (not a green cash-collection bag, not banknotes, not documents)?"
+      "question": "Is a coat, jacket, scarf or a personal handbag or backpack lying on the desk? Office equipment (counting machine, laptop, phone, printer), banknotes, documents and a green cash-collection bag do not count."
     },
     {
       "id": "visitor",
@@ -78,9 +78,15 @@
       "question": "Does the laptop screen show an open program, document or spreadsheet (not black and not a lock screen with a picture)?"
     },
     {
+      "id": "cash_in_machine",
+      "title": "Деньги в машинке",
+      "crop": "zone",
+      "question": "Are banknotes inside or being fed into the banknote counting machine right now?"
+    },
+    {
       "id": "held_object",
       "title": "Что в руках",
-      "crop": "zone",
+      "crop": "desk",
       "when": {
         "visitor": "yes"
       },
@@ -93,13 +99,7 @@
         "phone": "a phone",
         "other": "something else"
       },
-      "note": "Вопрос с выбором вместо yes/no про удостоверение: на 19 размеченных кадрах 15/19 против 14/19 (Qwen3-VL-8B). На отдельном кропе стола 16/19, но это лишняя картинка (~2 с) на кадр."
-    },
-    {
-      "id": "cash_in_machine",
-      "title": "Деньги в машинке",
-      "crop": "zone",
-      "question": "Are banknotes inside or being fed into the banknote counting machine right now?"
+      "note": "Вопрос с выбором вместо yes/no про удостоверение. На 24 кадрах датасета с ответом, проверенным вручную (Qwen3-VL-8B): кроп стола 21/24 (все удостоверения верно), кроп зоны 19/24, кроп рук MediaPipe 17/24, классификатор SigLIP 7/24 — docs/model_accuracy.md. Цена кропа стола — отдельная картинка (~2 с на кадр с посетителем)."
     },
     {
       "id": "person_in_room",
@@ -237,7 +237,7 @@
     },
     {
       "id": "cash_without_id",
-      "enabled": true,
+      "enabled": false,
       "kind": "missing_before",
       "session": {
         "visitor": "yes"
@@ -258,7 +258,8 @@
         "url": "https://adilet.zan.kz/rus/docs/V1900019680",
         "verified": true
       },
-      "missing_min_frames": 1
+      "missing_min_frames": 1,
+      "disabled_reason": "В потоке видео удостоверение распознаётся ненадёжно: 0 попаданий и 4 ложных на датасете (Х-19, Х-37, Х-39, Х-45), docs/run_review.md."
     },
     {
       "id": "bag_without_document",
@@ -283,7 +284,8 @@
         "url": "https://adilet.zan.kz/rus/docs/V1900019680",
         "verified": true
       },
-      "missing_min_frames": 1
+      "missing_min_frames": 1,
+      "missing_anywhere": true
     },
     {
       "id": "extra_person",
@@ -325,7 +327,7 @@
     },
     {
       "id": "food_at_workplace",
-      "enabled": true,
+      "enabled": false,
       "kind": "state",
       "all": {
         "eating_now": "yes"
@@ -339,7 +341,8 @@
         "section": "п. 12",
         "url": "https://adilet.zan.kz/rus/docs/V1900019680",
         "verified": true
-      }
+      },
+      "disabled_reason": "0 попаданий; по разметке команды еда — не отдельный тип (в Х-46 нарушение — деньги на столе)."
     },
     {
       "id": "personal_items",

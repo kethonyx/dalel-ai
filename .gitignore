@@ -9,3 +9,8 @@ eval_out/
 eval_30b/
 .env
 eval_8b/
+eval_8b_desk/
+eval_own_30b/
+eval_own_8b/
+eval_30b_v2/
+eval_own_30b_v2/

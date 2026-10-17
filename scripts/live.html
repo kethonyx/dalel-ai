@@ -110,9 +110,12 @@ function draw(d) {
   $("grid").replaceChildren(tbl);
 }
 
+// ?f=другой.json — смотреть другой прогон (например, два прогона параллельно)
+const LIVE_FILE = new URLSearchParams(location.search).get("f") || "live.json";
+
 async function tick() {
   try {
-    const r = await fetch("live.json?" + Date.now(), { cache: "no-store" });
+    const r = await fetch(LIVE_FILE + "?" + Date.now(), { cache: "no-store" });
     if (r.ok) {
       const d = await r.json();
       if (d.updated !== lastUpdated) draw(d);
