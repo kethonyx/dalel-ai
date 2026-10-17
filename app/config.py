@@ -5,7 +5,8 @@ from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 DATA_DIR = Path(os.getenv("DATA_DIR", BASE_DIR / "data"))
-JOBS_DIR = DATA_DIR / "jobs"
+VIDEOS_DIR = DATA_DIR / "videos"
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://dalel:dalel_dev_password@127.0.0.1:5433/dalel")
 RULES_PATH = Path(os.getenv("RULES_PATH", BASE_DIR / "rules.json"))
 
 # --- доступ -------------------------------------------------------------

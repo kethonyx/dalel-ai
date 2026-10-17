@@ -5,3 +5,4 @@ results.jsonl
 __pycache__/
 .idea/
 eval_out/
+.env

@@ -39,15 +39,22 @@ class VideoError(RuntimeError):
 # ---------------------------------------------------------------- ffmpeg ---
 
 def probe_duration(video: Path) -> float:
-    proc = subprocess.run(
-        ["ffprobe", "-v", "error", "-select_streams", "v:0",
-         "-show_entries", "format=duration", "-of", "default=nw=1:nk=1", str(video)],
-        capture_output=True, text=True,
-    )
     try:
-        return float(proc.stdout.strip())
-    except ValueError as exc:
-        raise VideoError("Не удалось прочитать видео (ffprobe не вернул длительность)") from exc
+        proc = subprocess.run(
+            ["ffprobe", "-v", "error", "-select_streams", "v:0",
+             "-show_entries", "stream=codec_type:format=duration", "-of", "json", str(video)],
+            capture_output=True, text=True, timeout=20,
+        )
+    except (FileNotFoundError, subprocess.TimeoutExpired) as exc:
+        raise VideoError("ffprobe недоступен или не ответил вовремя") from exc
+    try:
+        info = json.loads(proc.stdout)
+        duration = float(info["format"]["duration"])
+        if proc.returncode or not info.get("streams") or not math.isfinite(duration) or duration <= 0:
+            raise ValueError
+        return duration
+    except (ValueError, KeyError, TypeError, json.JSONDecodeError) as exc:
+        raise VideoError("Не удалось прочитать видео или в нём нет видеодорожки") from exc
 
 
 def sample_step(duration: float) -> float:
