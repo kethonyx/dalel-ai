@@ -5,6 +5,7 @@ GET  /api/v1/jobs/{job_id}  статус (processing|done|failed) и резул�
 """
 from __future__ import annotations
 
+import base64
 import json
 import logging
 import queue
@@ -19,7 +20,7 @@ from fastapi import Depends, FastAPI, File, Header, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from . import config, pipeline
+from . import config, pipeline, rules as rule_engine
 
 log = logging.getLogger("cashier")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -27,6 +28,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(mess
 STATIC_DIR = Path(__file__).parent / "static"
 
 _jobs: dict[str, dict] = {}
+_live: dict[str, dict] = {}  # job_id -> ответы модели по кадрам во время обработки (в job.json не пишется)
 _jobs_lock = threading.Lock()
 _queue: "queue.Queue[str]" = queue.Queue()
 
@@ -76,7 +78,17 @@ def _worker() -> None:
                     _jobs[job_id]["stage"] = stage
                     _jobs[job_id]["progress"] = round(frac, 2)
 
-            result = pipeline.analyze_video(job_id, video, progress)
+            live = {"rows": [], "preview": None, "preview_t": None}
+            with _jobs_lock:
+                _live[job_id] = live
+
+            def on_frame(row: dict, preview: bytes) -> None:
+                with _jobs_lock:
+                    live["rows"].append({"t": row["t"], "a": row["a"]})
+                    live["preview"] = base64.b64encode(preview).decode()
+                    live["preview_t"] = row["t"]
+
+            result = pipeline.analyze_video(job_id, video, progress, on_frame=on_frame)
             fields = {k: v for k, v in result.items() if k != "job_id"}
             _update(job_id, **fields, stage="Готово", progress=1.0)
             log.info("job %s done in %.1fs, verdict=%s", job_id, time.monotonic() - started, result["verdict"])
@@ -84,6 +96,8 @@ def _worker() -> None:
             log.exception("job %s failed", job_id)
             _update(job_id, status="failed", error=str(exc)[:300])
         finally:
+            with _jobs_lock:
+                _live.pop(job_id, None)  # живой просмотр нужен только во время обработки
             _queue.task_done()
 
 
@@ -180,6 +194,31 @@ if config.UI_OPEN:
     @app.get("/ui/jobs/{job_id}")
     def ui_job(job_id: str):
         return _job_view(job_id)
+
+    @app.get("/ui/jobs/{job_id}/live")
+    def ui_job_live(job_id: str, since: int = 0):
+        """Живой просмотр: что модель видит сейчас и что ответила по кадрам.
+
+        since — сколько строк клиент уже получил; отдаём только новые.
+        События пересчитываются по накопленным ответам (предварительно, без дозаполнения).
+        """
+        cfg = pipeline.load_rules()
+        with _jobs_lock:
+            live = _live.get(job_id)
+            if live is None:
+                return {"active": False}
+            rows = sorted(live["rows"], key=lambda r: r["t"])
+            preview, preview_t = live["preview"], live["preview_t"]
+        events = rule_engine.evaluate(rows, cfg["rules"], config.MERGE_GAP_SEC, config.MAX_EVENTS_PER_RULE)
+        return {
+            "active": True,
+            "probes": [{"id": p["id"], "title": p.get("title", p["id"])} for p in cfg["probes"]],
+            "total": len(rows),
+            "rows": rows[since:] if since <= len(rows) else rows,
+            "preview": preview,
+            "preview_t": preview_t,
+            "events": [{"t": round(e.t, 1), "type": e.rule["type"]} for e in events],
+        }
 
 
 @app.get("/", include_in_schema=False)

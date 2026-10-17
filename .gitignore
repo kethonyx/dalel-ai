@@ -5,3 +5,5 @@ results.jsonl
 __pycache__/
 .idea/
 eval_out/
+.claude/
+eval_30b/

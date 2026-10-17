@@ -14,38 +14,45 @@
   "probes": [
     {
       "id": "cashier_seated",
+      "title": "Кассир за столом",
       "crop": "zone",
       "question": "Is a person sitting in the chair at the cashier desk, on the employee side next to the laptop and the counting machine?"
     },
     {
       "id": "safe_open",
+      "title": "Сейф открыт",
       "crop": "zone",
       "question": "Is the door of the grey metal safe (cabinet) open?"
     },
     {
       "id": "cash_on_desk",
+      "title": "Деньги на столе",
       "crop": "zone",
       "question": "Are banknotes, a bundle of cash or a cash bag lying on the desk (not held in someone's hand)?"
     },
     {
       "id": "food_drink",
+      "title": "Еда / напиток",
       "crop": "zone",
       "every": 2,
       "question": "Is there a cup, bottle, food or a drink on the desk or in the employee's hands?"
     },
     {
       "id": "personal_items",
+      "title": "Личные вещи",
       "crop": "zone",
       "every": 2,
       "question": "Is there a coat, jacket, scarf or handbag lying on the desk?"
     },
     {
       "id": "visitor",
+      "title": "Посетитель",
       "crop": "zone",
       "question": "Besides the employee at the desk, is there another person (a visitor) in the picture?"
     },
     {
       "id": "crowd",
+      "title": "3+ человека",
       "crop": "zone",
       "when": {
         "visitor": "yes"
@@ -54,6 +61,7 @@
     },
     {
       "id": "cash_handover",
+      "title": "Передача денег",
       "crop": "zone",
       "when": {
         "visitor": "yes"
@@ -62,6 +70,7 @@
     },
     {
       "id": "id_shown",
+      "title": "Удостоверение",
       "crop": "zone",
       "when": {
         "visitor": "yes"
@@ -70,6 +79,7 @@
     },
     {
       "id": "bag",
+      "title": "Инкассаторская сумка",
       "crop": "zone",
       "when": {
         "visitor": "yes"
@@ -78,6 +88,7 @@
     },
     {
       "id": "screen_unlocked",
+      "title": "Экран не заблокирован",
       "crop": "zone",
       "when": {
         "cashier_seated": "no"
@@ -86,6 +97,7 @@
     },
     {
       "id": "person_in_room",
+      "title": "Кто-то в комнате",
       "crop": "full",
       "when": {
         "cashier_seated": "no"
@@ -94,6 +106,7 @@
     },
     {
       "id": "key_in_safe",
+      "title": "Ключ в сейфе",
       "crop": "safe",
       "when": {
         "cashier_seated": "no"
