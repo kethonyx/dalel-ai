@@ -18,6 +18,7 @@ import anyio
 from fastapi import Depends, FastAPI, File, Header, HTTPException, Query, Request, UploadFile
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel
 from starlette.concurrency import run_in_threadpool
 
 from . import config, db, pipeline, rules as rule_engine
@@ -95,6 +96,10 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="Cashier discipline video analyzer", lifespan=lifespan)
 
 
+class WorkerCreate(BaseModel):
+    name: str
+
+
 def _valid_key(key: str | None) -> bool:
     return key is not None and secrets.compare_digest(key.encode(), config.API_KEY.encode())
 
@@ -122,7 +127,7 @@ def _stream_authorized(request: Request, video_id: UUID,
     return secrets.compare_digest(signature, expected)
 
 
-async def _store_video(file: UploadFile) -> dict:
+async def _store_video(file: UploadFile, worker_id: UUID | None = None) -> dict:
     original_name = Path(file.filename or "").name
     ext = Path(original_name).suffix.lower()
     if ext not in config.ALLOWED_EXT:
@@ -151,9 +156,10 @@ async def _store_video(file: UploadFile) -> dict:
         media_type = "video/mp4" if ext in {".mp4", ".m4v"} else "video/quicktime"
         storage_key = str(dest.relative_to(config.DATA_DIR))
         await run_in_threadpool(db.add_video, video_id, storage_key, original_name,
-                                media_type, size, duration)
+                                media_type, size, duration, worker_id)
         return {"id": video_id, "storage_key": storage_key, "original_name": original_name,
-                "media_type": media_type, "size_bytes": size, "duration_sec": duration}
+                "media_type": media_type, "size_bytes": size, "duration_sec": duration,
+                "worker_id": worker_id}
     except Exception:
         temp.unlink(missing_ok=True)
         dest.unlink(missing_ok=True)
@@ -199,6 +205,7 @@ def _video_view(video: dict) -> dict:
     run_id = latest["id"] if latest else video.get("latest_run_id")
     status = latest["status"] if latest else video.get("analysis_status")
     return {"video_id": str(video["id"]), "original_name": video["original_name"],
+            "worker_id": str(video["worker_id"]) if video["worker_id"] else None,
             "size_bytes": video["size_bytes"], "duration_sec": video["duration_sec"],
             "created_at": video["created_at"].isoformat(),
             "job_id": str(run_id) if run_id else None,
@@ -231,6 +238,33 @@ def get_job(job_id: UUID):
 
 
 # API сохранённых видео и временной шкалы.
+@app.post("/api/v1/new-worker", dependencies=[Depends(require_key)], status_code=201)
+def new_worker(body: WorkerCreate):
+    name = body.name.strip()
+    if not 1 <= len(name) <= 200:
+        raise HTTPException(status_code=422, detail="Имя работника должно содержать 1–200 символов")
+    worker = db.add_worker(uuid4(), name)
+    return {"worker_id": str(worker["id"]), "name": worker["name"],
+            "created_at": worker["created_at"].isoformat()}
+
+
+@app.post("/api/v1/workers/{worker_id}/videos", dependencies=[Depends(require_key)], status_code=202)
+async def upload_worker_video(worker_id: UUID, file: UploadFile = File(...)):
+    if db.get_worker(worker_id) is None:
+        raise HTTPException(status_code=404, detail="Worker not found")
+    video = await _store_video(file, worker_id)
+    return {**_start_run(video["id"]), "worker_id": str(worker_id)}
+
+
+@app.get("/api/v1/workers/{worker_id}/videos", dependencies=[Depends(require_key)])
+def list_worker_videos(worker_id: UUID, limit: int = Query(100, ge=1, le=100),
+                       offset: int = Query(0, ge=0)):
+    if db.get_worker(worker_id) is None:
+        raise HTTPException(status_code=404, detail="Worker not found")
+    return {"worker_id": str(worker_id),
+            "items": [_video_view(video) for video in db.list_videos(limit, offset, worker_id)]}
+
+
 @app.post("/api/v1/videos", dependencies=[Depends(require_key)], status_code=202)
 async def upload_video(file: UploadFile = File(...)):
     video = await _store_video(file)
