@@ -23,13 +23,25 @@ def check_connection() -> None:
         conn.execute("SELECT 1")
 
 
+def add_worker(worker_id: UUID, name: str) -> dict:
+    with connection() as conn:
+        return conn.execute("""INSERT INTO worker (id, name) VALUES (%s, %s)
+            RETURNING id, name, created_at""", (worker_id, name)).fetchone()
+
+
+def get_worker(worker_id: UUID) -> dict | None:
+    with connection() as conn:
+        return conn.execute("SELECT id, name, created_at FROM worker WHERE id = %s",
+                            (worker_id,)).fetchone()
+
+
 def add_video(video_id: UUID, storage_key: str, original_name: str, media_type: str,
-              size_bytes: int, duration_sec: float) -> None:
+              size_bytes: int, duration_sec: float, worker_id: UUID | None = None) -> None:
     with connection() as conn:
         conn.execute("""INSERT INTO videos
-            (id, storage_key, original_name, media_type, size_bytes, duration_sec)
-            VALUES (%s, %s, %s, %s, %s, %s)""",
-            (video_id, storage_key, original_name, media_type, size_bytes, duration_sec))
+            (id, worker_id, storage_key, original_name, media_type, size_bytes, duration_sec)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)""",
+            (video_id, worker_id, storage_key, original_name, media_type, size_bytes, duration_sec))
 
 
 def get_video(video_id: UUID) -> dict | None:
@@ -37,7 +49,9 @@ def get_video(video_id: UUID) -> dict | None:
         return conn.execute("SELECT * FROM videos WHERE id = %s", (video_id,)).fetchone()
 
 
-def list_videos(limit: int = 100, offset: int = 0) -> list[dict]:
+def list_videos(limit: int = 100, offset: int = 0, worker_id: UUID | None = None) -> list[dict]:
+    where = "WHERE v.worker_id = %s" if worker_id is not None else ""
+    params = (worker_id, limit, offset) if worker_id is not None else (limit, offset)
     with connection() as conn:
         return conn.execute("""SELECT v.*, r.id AS latest_run_id, r.status AS analysis_status,
             c.id AS latest_completed_run_id
@@ -49,8 +63,8 @@ def list_videos(limit: int = 100, offset: int = 0) -> list[dict]:
                 SELECT id FROM analysis_runs WHERE video_id = v.id AND status = 'done'
                 ORDER BY created_at DESC, id DESC LIMIT 1
             ) c ON true
-            ORDER BY v.created_at DESC, v.id DESC LIMIT %s OFFSET %s""",
-            (limit, offset)).fetchall()
+            """ + where + " ORDER BY v.created_at DESC, v.id DESC LIMIT %s OFFSET %s",
+            params).fetchall()
 
 
 def add_run(run_id: UUID, video_id: UUID) -> None:
