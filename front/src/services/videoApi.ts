@@ -22,6 +22,7 @@ export type UiJobResponse = {
   progress?: number
   video_id?: string
   stream_url?: string
+  poster_url?: string
   verdict?: string
   violations?: AnalysisViolation[]
   error?: string
@@ -38,6 +39,7 @@ export type StoredInvestigation = {
   stage: string
   progress: number
   streamUrl: string | null
+  posterUrl?: string | null
   verdict: string | null
   violationCount: number
   error: string | null
@@ -55,6 +57,7 @@ export type WorkerVideo = {
   jobId: string | null
   status: AnalysisStatus | null
   streamUrl: string
+  posterUrl?: string
 }
 
 const HISTORY_KEY = 'fortebank-compliance-investigations-v1'
@@ -118,6 +121,7 @@ function parseJobResponse(value: unknown): UiJobResponse {
       : undefined,
     video_id: typeof payload.video_id === 'string' ? payload.video_id : undefined,
     stream_url: typeof payload.stream_url === 'string' ? payload.stream_url : undefined,
+    poster_url: typeof payload.poster_url === 'string' ? payload.poster_url : undefined,
     verdict: typeof payload.verdict === 'string' ? payload.verdict : undefined,
     violations: parseViolations(payload.violations),
     error: typeof payload.error === 'string' ? payload.error : undefined,
@@ -220,6 +224,7 @@ export async function listWorkerVideos(workerId: string): Promise<WorkerVideo[]>
     latest_completed_job_id: string | null
     analysis_status: AnalysisStatus | null
     stream_url: string
+    poster_url?: string
   }> }>(`/workers/${encodeURIComponent(workerId)}/videos?limit=100&offset=0`)
   return result.items.map((video) => ({
     videoId: video.video_id,
@@ -231,6 +236,7 @@ export async function listWorkerVideos(workerId: string): Promise<WorkerVideo[]>
     jobId: video.job_id ?? video.latest_completed_job_id,
     status: video.analysis_status,
     streamUrl: video.stream_url,
+    posterUrl: video.poster_url,
   }))
 }
 
@@ -257,6 +263,7 @@ export function loadInvestigations(): StoredInvestigation[] {
       stage: typeof item.stage === 'string' ? item.stage : '',
       progress: typeof item.progress === 'number' ? Math.min(1, Math.max(0, item.progress)) : 0,
       streamUrl: typeof item.streamUrl === 'string' ? item.streamUrl : null,
+      posterUrl: typeof item.posterUrl === 'string' ? item.posterUrl : null,
       verdict: typeof item.verdict === 'string' ? item.verdict : null,
       violationCount: typeof item.violationCount === 'number' ? item.violationCount : 0,
       error: typeof item.error === 'string' ? item.error : null,

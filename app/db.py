@@ -49,11 +49,6 @@ def set_video_worker(video_id: UUID, worker_id: UUID | None) -> bool:
                             (worker_id, video_id)).rowcount == 1
 
 
-def list_workers() -> list[dict]:
-    with connection() as conn:
-        return conn.execute("SELECT id, name, created_at FROM worker ORDER BY name, id").fetchall()
-
-
 def add_video(video_id: UUID, storage_key: str, original_name: str, media_type: str,
               size_bytes: int, duration_sec: float, worker_id: UUID | None = None) -> None:
     with connection() as conn:

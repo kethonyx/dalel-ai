@@ -34,36 +34,41 @@ function normalizeEvidenceFrame(imageBase64: string) {
 export function InvestigationPoster({
   jobId,
   source,
+  posterSource,
   file,
   evidenceFrame,
   fallback,
 }: {
   jobId: string
   source: string
+  posterSource?: string
   file: File | null
   evidenceFrame?: string
   fallback: ReactNode
 }) {
-  const stateKey = `${jobId}:${source}:${file?.size ?? 0}:${file?.lastModified ?? 0}`
+  const stateKey = `${jobId}:${source}:${posterSource ?? ''}:${file?.size ?? 0}:${file?.lastModified ?? 0}`
   const [posterState, setPosterState] = useState(() => ({
     key: stateKey,
     image: evidenceFrame ? normalizeEvidenceFrame(evidenceFrame) : getCachedPoster(jobId),
   }))
+  const [failedPosterKey, setFailedPosterKey] = useState('')
   const evidencePoster = evidenceFrame ? normalizeEvidenceFrame(evidenceFrame) : ''
-  const poster = evidencePoster || getCachedPoster(jobId) || (posterState.key === stateKey ? posterState.image : '')
+  const directPosterFailed = failedPosterKey === `${stateKey}:${posterSource ?? ''}`
+  const cachedPoster = getCachedPoster(jobId) || (posterState.key === stateKey ? posterState.image : '')
+  const poster = evidencePoster || (posterSource && !directPosterFailed ? '' : cachedPoster)
 
   useEffect(() => {
     let cancelled = false
     let objectUrl = ''
     let timeout = 0
-    if (evidencePoster) return () => { cancelled = true }
+    if (evidencePoster || (posterSource && !directPosterFailed)) return () => { cancelled = true }
     const cached = getCachedPoster(jobId)
     if (cached) return () => { cancelled = true }
     if (!source && !file) return () => { cancelled = true }
 
     const videoSource = file ? (objectUrl = URL.createObjectURL(file)) : source
     const video = document.createElement('video')
-    video.preload = 'metadata'
+    video.preload = 'auto'
     video.muted = true
     video.playsInline = true
     video.crossOrigin = 'anonymous'
@@ -105,7 +110,7 @@ export function InvestigationPoster({
       video.pause()
       video.removeAttribute('src')
       video.load()
-    }, 8000)
+    }, 25000)
 
     return () => {
       cancelled = true
@@ -116,7 +121,7 @@ export function InvestigationPoster({
       video.remove()
       if (objectUrl) URL.revokeObjectURL(objectUrl)
     }
-  }, [evidenceFrame, evidencePoster, file, jobId, source, stateKey])
+  }, [directPosterFailed, evidenceFrame, evidencePoster, file, jobId, posterSource, source, stateKey])
 
-  return <>{poster ? <img className="investigation-poster-image" src={poster} alt="Video preview frame" /> : fallback}</>
+  return <>{poster ? <img className="investigation-poster-image" src={poster} alt="Video preview frame" /> : posterSource && !directPosterFailed ? <img className="investigation-poster-image" src={posterSource} alt="Video preview frame" onError={() => setFailedPosterKey(`${stateKey}:${posterSource}`)} /> : fallback}</>
 }

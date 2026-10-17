@@ -91,6 +91,24 @@ def grab_frame_jpeg(video: Path, t: float, max_side: int) -> bytes:
     return proc.stdout
 
 
+def extract_poster(video: Path, output: Path, duration: float) -> None:
+    """Save a browser-independent JPEG preview frame beside a stored video."""
+    output.parent.mkdir(parents=True, exist_ok=True)
+    timestamp = min(5.0, max(0.05, duration * 0.12))
+    scale = "scale='if(gt(iw,ih),min(640,iw),-2)':'if(gt(iw,ih),-2,min(640,ih))'"
+    try:
+        proc = subprocess.run(
+            ["ffmpeg", "-v", "error", "-ss", f"{timestamp:.3f}", "-i", str(video),
+             "-frames:v", "1", "-vf", scale, "-q:v", "3", "-y", str(output)],
+            capture_output=True, text=True, timeout=30,
+        )
+    except (FileNotFoundError, subprocess.TimeoutExpired) as exc:
+        raise VideoError("Не удалось создать превью видео") from exc
+    if proc.returncode != 0 or not output.is_file() or output.stat().st_size == 0:
+        output.unlink(missing_ok=True)
+        raise VideoError(f"Не удалось создать превью видео: {proc.stderr.strip()[:200]}")
+
+
 # ----------------------------------------------------------------- images ---
 
 def to_jpeg(img: Image.Image, max_side: int, min_side: int = 0) -> bytes:
