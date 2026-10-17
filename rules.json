@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "note": "Правила-гипотезы. Каждое правило включается ('enabled': true) только после того, как (1) тип подтверждён на роликах датасета и (2) источник найден и проверен вручную на adilet.zan.kz / в актах НБРК. Пока source.verified = false, сервис пишет в описании «норматив уточняется» и НЕ выдумывает ссылку.",
+  "rules": [
+    {
+      "id": "extra_person_in_cashier_zone",
+      "enabled": false,
+      "hypothesis": true,
+      "type": "Посторонний в зоне кассира",
+      "question": "Находится ли за стойкой кассира, в рабочей зоне кассира, кроме самого кассира ещё хотя бы один человек? Ответь yes, no или unclear.",
+      "observation": "В рабочей зоне кассира виден более чем один человек",
+      "why": null,
+      "min_consecutive": 2,
+      "source": {"document": null, "section": null, "url": null, "verified": false}
+    },
+    {
+      "id": "cash_unattended_on_counter",
+      "enabled": false,
+      "hypothesis": true,
+      "type": "Денежная наличность без присмотра",
+      "question": "Лежат ли на стойке банкноты или пачки денег, пока кассира нет на рабочем месте? Ответь yes, no или unclear.",
+      "observation": "На стойке видны деньги, кассир отсутствует на рабочем месте",
+      "why": null,
+      "min_consecutive": 2,
+      "source": {"document": null, "section": null, "url": null, "verified": false}
+    }
+  ]
+}
