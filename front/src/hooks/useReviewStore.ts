@@ -2,13 +2,12 @@ import { useState } from 'react'
 
 export type ReviewDecision = 'pending' | 'confirmed' | 'dismissed'
 export type CaseReview = {
-  employeeId: string
   comment: string
   eventDecisions: Record<string, ReviewDecision>
   savedAt: string | null
 }
 
-const emptyReview: CaseReview = { employeeId: '', comment: '', eventDecisions: {}, savedAt: null }
+const emptyReview: CaseReview = { comment: '', eventDecisions: {}, savedAt: null }
 const reviewKey = (jobId: string) => `forte-investigation-review:${jobId}`
 
 export function getSavedReview(jobId: string): CaseReview {
@@ -23,7 +22,6 @@ export function getSavedReview(jobId: string): CaseReview {
       }
     }
     return {
-      employeeId: typeof review.employeeId === 'string' ? review.employeeId : '',
       comment: typeof review.comment === 'string' ? review.comment : '',
       eventDecisions: decisions,
       savedAt: typeof review.savedAt === 'string' ? review.savedAt : null,

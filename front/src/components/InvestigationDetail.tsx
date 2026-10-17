@@ -2,8 +2,8 @@ import { useRef, useState } from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { AlertTriangle, Check, CheckCircle2, Clock3, MessageSquareText, ShieldCheck, UserRound, X } from 'lucide-react'
 import type { AnalysisViolation, StoredInvestigation } from '../services/videoApi'
-import { employees } from '../employees'
 import { useReviewStore, type ReviewDecision } from '../hooks/useReviewStore'
+import type { Worker } from '../services/videoApi'
 
 type InvestigationDetailItem = StoredInvestigation & {
   file: File | null
@@ -28,10 +28,12 @@ function statusLabel(decision: ReviewDecision) {
   return decision === 'confirmed' ? 'Confirmed' : decision === 'dismissed' ? 'Dismissed' : 'Pending review'
 }
 
-export function InvestigationDetail({ item, onClose }: { item: InvestigationDetailItem; onClose: () => void }) {
+export function InvestigationDetail({ item, workers, onAssignWorker, onClose }: { item: InvestigationDetailItem; workers: Worker[]; onAssignWorker: (videoId: string, workerId: string | null) => Promise<void>; onClose: () => void }) {
   const reduceMotion = useReducedMotion()
   const videoRef = useRef<HTMLVideoElement>(null)
   const [activeEvent, setActiveEvent] = useState<number | null>(null)
+  const [assigningWorker, setAssigningWorker] = useState(false)
+  const [assignmentError, setAssignmentError] = useState('')
   const { review, updateReview, setEventDecision, saveReview } = useReviewStore(item.jobId)
   const events = item.violations ?? []
 
@@ -46,6 +48,18 @@ export function InvestigationDetail({ item, onClose }: { item: InvestigationDeta
     const saved = saveReview()
     if (!saved) return
     window.dispatchEvent(new CustomEvent('forte-review-saved', { detail: { jobId: item.jobId } }))
+  }
+
+  async function handleAssignWorker(workerId: string) {
+    setAssigningWorker(true)
+    setAssignmentError('')
+    try {
+      await onAssignWorker(item.videoId, workerId || null)
+    } catch (error) {
+      setAssignmentError(error instanceof Error ? error.message : 'Could not update this assignment.')
+    } finally {
+      setAssigningWorker(false)
+    }
   }
 
   return (
@@ -91,7 +105,9 @@ export function InvestigationDetail({ item, onClose }: { item: InvestigationDeta
 
               <section className="case-review-panel" aria-labelledby="review-title">
                 <div className="case-section-title"><div><span className="micro-label">HUMAN REVIEW</span><h3 id="review-title">Review decision</h3></div><span className={`review-save-status${review.savedAt ? ' saved' : ''}`}>{review.savedAt ? 'Saved' : 'Unsaved changes'}</span></div>
-                <label className="review-field"><span><UserRound size={13} /> Assign employee</span><select value={review.employeeId} onChange={(event) => updateReview({ employeeId: event.target.value })}><option value="">Unassigned</option>{employees.map((employee) => <option value={employee.id} key={employee.id}>{employee.name}</option>)}</select></label>
+                <label className="review-field"><span><UserRound size={13} /> Assigned worker</span><select value={item.workerId ?? ''} onChange={(event) => void handleAssignWorker(event.target.value)} disabled={assigningWorker}><option value="">Unassigned</option>{workers.map((worker) => <option value={worker.id} key={worker.id}>{worker.name}</option>)}</select></label>
+                {workers.length === 0 && <p className="assignment-hint">Add a worker in Employees to assign this recording.</p>}
+                {assignmentError && <p className="worker-form-error" role="alert">{assignmentError}</p>}
                 <label className="review-field"><span><MessageSquareText size={13} /> Reviewer comment</span><textarea value={review.comment} onChange={(event) => updateReview({ comment: event.target.value })} placeholder="Add context for this review" rows={3} /></label>
                 <button className="button-primary save-review-button" type="button" onClick={handleSave}><CheckCircle2 size={14} /> Save review</button>
               </section>
