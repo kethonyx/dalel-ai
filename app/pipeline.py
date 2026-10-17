@@ -153,10 +153,15 @@ def find_zones(frames: list[dict], zone_cfg: dict) -> dict:
             found.setdefault(item["label"].lower(), []).append(item["box"])
     zone = union([b for boxes in found.values() for b in boxes])
     safe = union(found.get("metal safe", []))
+    desk = union(found.get("cashier desk", []))
+    zone_box = pad(zone, zone_cfg.get("pad_x", 0.15), zone_cfg.get("pad_top", 0.5),
+                   zone_cfg.get("pad_bottom", 0.2)) if zone else (0.0, 0.0, 1.0, 1.0)
     return {
-        "zone": pad(zone, zone_cfg.get("pad_x", 0.15), zone_cfg.get("pad_top", 0.5),
-                    zone_cfg.get("pad_bottom", 0.2)) if zone else (0.0, 0.0, 1.0, 1.0),
+        "zone": zone_box,
         "safe": pad(safe, 0.6, 0.4, 0.4) if safe else None,
+        # поверхность стола и руки над ней: предметы в руках крупнее, чем на кропе всей зоны
+        # (купюры vs удостоверение: 16/19 против 15/19 на тестовых кадрах, Qwen3-VL-8B)
+        "desk": pad(desk, 0.05, 0.6, 0.0) if desk else zone_box,
         "found": {k: len(v) for k, v in found.items()},
     }
 
@@ -196,6 +201,8 @@ def probe_frame(fr: dict, idx: int, probes: list[dict], zones: dict, cache: Answ
                 crops[kind] = to_jpeg(img, config.FULL_MAX_SIDE)
             elif kind == "zone":
                 crops[kind] = to_jpeg(crop_frac(img, zones["zone"]), config.FRAME_MAX_SIDE)
+            elif kind == "desk":
+                crops[kind] = to_jpeg(crop_frac(img, zones.get("desk") or zones["zone"]), config.FRAME_MAX_SIDE)
             elif kind == "safe":
                 crops[kind] = (to_jpeg(crop_frac(img, zones["safe"]), config.FRAME_MAX_SIDE, min_side=448)
                                if zones.get("safe") else None)
@@ -212,11 +219,13 @@ def probe_frame(fr: dict, idx: int, probes: list[dict], zones: dict, cache: Answ
         jpeg = crop(pr.get("crop", "zone"))
         if jpeg is None:
             continue
-        res = cache.get(jpeg, pr["question"]) if cache else None
+        options = pr.get("options")  # вопрос с выбором варианта: {ключ: текст}
+        key = vlm.choice_prompt(pr["question"], options) if options else pr["question"]
+        res = cache.get(jpeg, key) if cache else None
         if res is None:
-            res = vlm.ask(jpeg, pr["question"])
+            res = vlm.ask_choice(jpeg, pr["question"], options) if options else vlm.ask(jpeg, pr["question"])
             if cache and res["answer"] != "unclear":
-                cache.put(jpeg, pr["question"], res)
+                cache.put(jpeg, key, res)
         answers[pr["id"]] = res["answer"]
         reasons[pr["id"]] = res["reason"]
     preview = to_jpeg(crop_frac(img, zones["zone"]), 360)  # для живого просмотра в интерфейсе

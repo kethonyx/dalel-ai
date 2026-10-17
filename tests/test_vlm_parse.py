@@ -14,6 +14,21 @@ class ParseBoxes(unittest.TestCase):
         self.assertEqual(vlm.parse_boxes('{"bbox_2d": []}', 1, 1), [])
 
 
+class ParseChoice(unittest.TestCase):
+    OPTS = {"nothing": "nothing", "banknotes": "banknotes", "id_card": "an ID card"}
+
+    def test_letter_maps_to_key(self):
+        self.assertEqual(vlm.parse_choice("C", self.OPTS), "id_card")
+        self.assertEqual(vlm.parse_choice("B) banknotes", self.OPTS), "banknotes")
+
+    def test_out_of_range_or_garbage_is_unclear(self):
+        self.assertEqual(vlm.parse_choice("F", self.OPTS), "unclear")
+        self.assertEqual(vlm.parse_choice("hmm", self.OPTS), "unclear")
+
+    def test_prompt_lists_letters(self):
+        self.assertIn("C) an ID card", vlm.choice_prompt("What?", self.OPTS))
+
+
 class ParseYesNo(unittest.TestCase):
     def test_variants(self):
         self.assertEqual(vlm.parse_yes_no("Yes.")["answer"], "yes")
