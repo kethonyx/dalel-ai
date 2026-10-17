@@ -31,18 +31,18 @@
       "question": "Are banknotes, a bundle of cash or a cash bag lying on the desk (not held in someone's hand)?"
     },
     {
-      "id": "food_drink",
-      "title": "Еда / напиток",
+      "id": "eating_now",
+      "title": "Пьёт / ест",
       "crop": "zone",
-      "every": 2,
-      "question": "Is there a cup, bottle, food or a drink on the desk or in the employee's hands?"
+      "every": 1,
+      "question": "Is the employee drinking or eating right now (a cup, bottle or food raised to the mouth)?"
     },
     {
       "id": "personal_items",
       "title": "Личные вещи",
       "crop": "zone",
       "every": 2,
-      "question": "Is there a coat, jacket, scarf or handbag lying on the desk?"
+      "question": "Is a coat, jacket, scarf or a personal handbag lying on the desk (not a green cash-collection bag, not banknotes, not documents)?"
     },
     {
       "id": "visitor",
@@ -142,7 +142,7 @@
         "cash_on_desk": "yes",
         "cashier_seated": "yes"
       },
-      "min_sec": 5,
+      "min_sec": 8,
       "type": "Наличные открыто на рабочем месте",
       "observation": "Наличные долго лежат открыто на столе кассира",
       "why": "На рабочем месте допускаются только деньги обслуживаемого клиента; ранее принятые хранятся в закрывающемся устройстве.",
@@ -161,7 +161,7 @@
         "safe_open": "yes",
         "cashier_seated": "yes"
       },
-      "min_sec": 3,
+      "min_sec": 5,
       "type": "Сейф оставлен открытым",
       "observation": "Дверца сейфа открыта, кассир работает за столом, а не с сейфом",
       "why": "Наличные вне операции хранятся в закрытом на ключ устройстве.",
@@ -297,7 +297,7 @@
     },
     {
       "id": "safe_open_with_visitor",
-      "enabled": true,
+      "enabled": false,
       "kind": "state",
       "all": {
         "safe_open": "yes",
@@ -312,18 +312,19 @@
         "section": "п. 20, абз. 2",
         "url": "https://adilet.zan.kz/rus/docs/V1900019680",
         "verified": true
-      }
+      },
+      "disabled_reason": "Открытие сейфа при клиенте — штатная операция (чистые Х-5, Х-8, Х-19): 9 ложных срабатываний из 19 чистых роликов."
     },
     {
       "id": "food_at_workplace",
       "enabled": true,
       "kind": "state",
       "all": {
-        "food_drink": "yes"
+        "eating_now": "yes"
       },
       "min_sec": 2,
       "type": "Еда или напитки на рабочем месте кассира",
-      "observation": "На рабочем месте кассира еда или напиток",
+      "observation": "Кассир пьёт или ест на рабочем месте",
       "why": "Трактовка: личные вещи работника хранятся вне кассового узла, разрешены лишь лекарства, медизделия и средства связи без фото/видео.",
       "source": {
         "document": "Правила осуществления кассовых операций… (постановление Правления НБРК от 29.11.2019 № 231)",
@@ -339,7 +340,7 @@
       "all": {
         "personal_items": "yes"
       },
-      "min_sec": 2,
+      "min_sec": 3,
       "type": "Личные вещи на рабочем месте кассира",
       "observation": "На столе кассира лежат личные вещи (верхняя одежда, сумка)",
       "why": "Личные вещи работников банка хранятся вне кассового узла.",
