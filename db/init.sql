@@ -1,8 +1,15 @@
 -- POSTGRES_DB=dalel создаёт базу при первом запуске контейнера.
 -- Этот файл создаёт схему в ней. Выполняется один раз на пустом Docker volume.
 
+CREATE TABLE worker (
+    id UUID PRIMARY KEY,
+    name TEXT NOT NULL CHECK (length(btrim(name)) BETWEEN 1 AND 200),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 CREATE TABLE videos (
     id UUID PRIMARY KEY,
+    worker_id UUID REFERENCES worker(id),
     storage_key TEXT NOT NULL UNIQUE,
     original_name TEXT NOT NULL,
     media_type TEXT NOT NULL,
@@ -10,6 +17,7 @@ CREATE TABLE videos (
     duration_sec DOUBLE PRECISION NOT NULL CHECK (duration_sec > 0),
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+CREATE INDEX videos_worker_created_idx ON videos (worker_id, created_at DESC);
 
 CREATE TABLE analysis_runs (
     id UUID PRIMARY KEY,
