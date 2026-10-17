@@ -169,13 +169,16 @@ def find_zones(frames: list[dict], zone_cfg: dict) -> dict:
 # ------------------------------------------------------------------ probes ---
 
 class AnswerCache:
-    def __init__(self, root: Path, model: str):
+    def __init__(self, root: Path, model):
+        """model — имя модели или функция, его возвращающая: при переключении на запасной
+        сервер посреди видео ответы запасной модели не должны попасть в кэш основной."""
         self.root = root
-        self.model = model.encode()
+        self.model = model
         self.root.mkdir(parents=True, exist_ok=True)
 
     def _path(self, jpeg: bytes, question: str) -> Path:
-        h = hashlib.sha1(jpeg + b"\0" + question.encode() + b"\0" + self.model).hexdigest()
+        model = (self.model() if callable(self.model) else self.model).encode()
+        h = hashlib.sha1(jpeg + b"\0" + question.encode() + b"\0" + model).hexdigest()
         return self.root / h[:2] / f"{h}.json"
 
     def get(self, jpeg: bytes, question: str) -> dict | None:
@@ -319,7 +322,9 @@ def analyze_video(job_id: str, video: Path, progress: ProgressFn | None = None,
     progress("Чтение видео", 0.02)
     duration = probe_duration(video)
     cfg = load_rules(rules_path)
-    cache = AnswerCache(config.CACHE_DIR, vlm.model_id())
+    if config.VLM_BACKEND != "stub":
+        vlm.select_model()  # основной сервер, если отвечает; иначе первый запасной
+    cache = AnswerCache(config.CACHE_DIR, vlm.model_id)
 
     with tempfile.TemporaryDirectory(prefix="frames_") as tmp:
         progress("Нарезка кадров", 0.05)
@@ -362,5 +367,6 @@ def analyze_video(job_id: str, video: Path, progress: ProgressFn | None = None,
         result = build_result(job_id, video, events)
         # служебное, в API не отдаётся (main._job_view фильтрует поля): для отладки и подбора правил
         result["_debug"] = {"duration": duration, "frames_total": len(frames), "frames_analyzed": len(timeline),
-                            "zones": zones, "timeline": timeline}
+                            "zones": zones, "timeline": timeline,
+                            "model": vlm.model_id().split("/")[-1], "model_switches": vlm.switches()}
         return result
