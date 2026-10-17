@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Прогон вживую</title>
+<!-- Живой просмотр прогона scripts/eval.py --live live.json.
+     Положить рядом с live.json и открыть через локальный http-сервер. Только локально: кадры датасета. -->
+<style>
+  :root { --bg:#fff; --fg:#1f2328; --muted:#656d76; --line:#d0d7de; --card:#f6f8fa;
+          --yes:#1a7f37; --no:#eaeef2; --un:#d4a72c; --ev:#cf222e; --lab:#8250df; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#0d1117; --fg:#e6edf3; --muted:#8d96a0; --line:#30363d;
+          --card:#161b22; --yes:#2ea043; --no:#21262d; --un:#bb8009; --ev:#f85149; --lab:#a371f7; } }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:14px/1.45 system-ui,-apple-system,sans-serif; }
+  main { max-width: 1100px; margin: 0 auto; padding: 16px; }
+  h1 { font-size: 20px; margin: 0 0 2px; }
+  .sub { color: var(--muted); margin: 0 0 12px; }
+  .top { display:flex; gap:16px; flex-wrap:wrap; align-items:flex-start; }
+  .top img { width: 360px; max-width: 100%; border-radius: 8px; border:1px solid var(--line); display:block; }
+  .now { flex: 1 1 260px; }
+  .chip { display:inline-block; border-radius:6px; padding:1px 8px; margin:0 4px 4px 0; background:var(--no); color:var(--muted); }
+  .chip.y { background: color-mix(in srgb, var(--yes) 25%, transparent); color:var(--fg); border:1px solid var(--yes); }
+  .chip.ev { background: color-mix(in srgb, var(--ev) 18%, transparent); color:var(--fg); border:1px solid var(--ev); }
+  .label { display:inline-block; margin-top:6px; padding:2px 8px; border-radius:6px; border:1px solid var(--lab); }
+  h3 { font-size: 14px; margin: 12px 0 4px; }
+  .grid { overflow-x:auto; margin-top: 12px; border:1px solid var(--line); border-radius:8px; background:var(--card); }
+  table { border-collapse: collapse; font-size: 11px; }
+  th { text-align:right; font-weight:400; color:var(--muted); padding: 0 6px; white-space:nowrap; }
+  td { width:14px; height:14px; padding:0; border:1px solid var(--card); }
+  td.y { background:var(--yes); } td.n { background:var(--no); } td.u { background:var(--un); }
+  td.ev { background:var(--ev); } td.lab { box-shadow: inset 0 -3px 0 var(--lab); }
+  .bar { height:6px; background:var(--line); border-radius:3px; overflow:hidden; margin: 6px 0 12px; }
+  .bar i { display:block; height:100%; background:var(--yes); }
+  .stale { color: var(--ev); }
+</style>
+</head>
+<body>
+<main>
+  <h1 id="title">Прогон вживую</h1>
+  <p class="sub" id="sub">Жду данных…</p>
+  <div class="bar"><i id="bar" style="width:0"></i></div>
+  <div class="top">
+    <img id="img" alt="Что сейчас видит модель">
+    <div class="now">
+      <div id="t" class="sub"></div>
+      <div id="ans"></div>
+      <h3>Найдено в этом ролике (предварительно)</h3>
+      <div id="ev"></div>
+      <div id="lab"></div>
+    </div>
+  </div>
+  <div class="grid" id="grid"></div>
+</main>
+<script>
+const $ = (id) => document.getElementById(id);
+const el = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text !== undefined) n.textContent = text; return n; };
+const fmt = (s) => Math.floor(s / 60) + ":" + (s % 60).toFixed(1).padStart(4, "0");
+let lastUpdated = 0;
+
+function draw(d) {
+  lastUpdated = d.updated;
+  $("title").textContent = "Прогон вживую: " + d.video;
+  $("sub").textContent = "Ролик " + d.index + " из " + d.total + " · проанализировано кадров: " + d.rows.length;
+  $("bar").style.width = Math.round(100 * (d.index - 1) / d.total) + "%";
+  $("img").src = "data:image/jpeg;base64," + d.preview;
+  const last = d.rows.find((r) => r.t === d.preview_t) || d.rows[d.rows.length - 1];
+  $("t").textContent = last ? "Кадр " + fmt(last.t) : "";
+  const ans = $("ans"); ans.replaceChildren();
+  if (last) for (const p of d.probes) {
+    const a = last.a[p.id];
+    if (a !== undefined) ans.append(el("span", "chip" + (a === "yes" ? " y" : ""), p.title + (a === "yes" ? " ✓" : "")));
+  }
+  const ev = $("ev"); ev.replaceChildren();
+  for (const e of d.events) ev.append(el("span", "chip ev", fmt(e.t) + " " + e.type));
+  if (!d.events.length) ev.append(el("span", "sub", "пока ничего"));
+  const lab = d.label;
+  $("lab").replaceChildren(el("span", "label", "Разметка: " +
+    (!lab ? "нет метки" : lab.violation ? "нарушение на " + lab.times.map((t) => t + " с").join(", ") : "без нарушения")));
+  const labTimes = lab && lab.violation ? lab.times : [];
+  const evTimes = d.events.map((e) => e.t);
+  const tbl = document.createElement("table");
+  const head = document.createElement("tr");
+  head.append(el("th", null, "с"));
+  for (const r of d.rows) head.append(el("th", null, Math.round(r.t) % 5 === 0 ? String(Math.round(r.t)) : ""));
+  tbl.append(head);
+  const marks = document.createElement("tr");
+  marks.append(el("th", null, "нарушение / метка"));
+  for (const r of d.rows) {
+    const c = document.createElement("td");
+    const cls = [];
+    if (evTimes.some((t) => Math.abs(t - r.t) < 0.6)) cls.push("ev");
+    if (labTimes.some((t) => Math.abs(t - r.t) <= 1)) cls.push("lab");
+    c.className = cls.join(" ");
+    marks.append(c);
+  }
+  tbl.append(marks);
+  for (const p of d.probes) {
+    const tr = document.createElement("tr");
+    tr.append(el("th", null, p.title));
+    for (const r of d.rows) {
+      const a = r.a[p.id], c = document.createElement("td");
+      c.className = a === "yes" ? "y" : a === "no" ? "n" : a === "unclear" ? "u" : "";
+      c.title = fmt(r.t) + " — " + p.title + ": " + (a || "не спрашивали");
+      tr.append(c);
+    }
+    tbl.append(tr);
+  }
+  $("grid").replaceChildren(tbl);
+}
+
+async function tick() {
+  try {
+    const r = await fetch("live.json?" + Date.now(), { cache: "no-store" });
+    if (r.ok) {
+      const d = await r.json();
+      if (d.updated !== lastUpdated) draw(d);
+      const age = Date.now() / 1000 - d.updated;
+      if (age > 60) { $("sub").textContent += " · нет новых кадров " + Math.round(age) + " с"; $("sub").classList.add("stale"); }
+      else $("sub").classList.remove("stale");
+    }
+  } catch {}
+  setTimeout(tick, 1000);
+}
+tick();
+</script>
+</body>
+</html>
