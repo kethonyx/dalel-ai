@@ -10,6 +10,7 @@
 from __future__ import annotations
 
 import argparse
+import base64
 import json
 import re
 import sys
@@ -79,6 +80,30 @@ def score(labels: dict, results: dict) -> None:
           f"таймкод ±{TOL:.0f}с у верных нарушений: {loc}/{tp}")
 
 
+def make_live_writer(path: Path, name: str, label: dict | None, cfg: dict, done: int, total: int):
+    """Колбэк для pipeline.analyze_video: после каждого кадра перезаписывает path
+    (атомарно, через временный файл), его читает scripts/live.html."""
+    rows: list[dict] = []
+    probes = [{"id": p["id"], "title": p.get("title", p["id"])} for p in cfg["probes"]]
+
+    def write(row: dict, preview: bytes) -> None:
+        rows.append({"t": row["t"], "a": row["a"]})
+        rows.sort(key=lambda r: r["t"])
+        events = rule_engine.evaluate(rows, cfg["rules"], config.MERGE_GAP_SEC, config.MAX_EVENTS_PER_RULE)
+        state = {
+            "video": name, "index": done + 1, "total": total,
+            "label": label, "probes": probes, "rows": rows, "preview_t": row["t"],
+            "preview": base64.b64encode(preview).decode(),
+            "events": [{"t": round(e.t, 1), "type": e.rule["type"]} for e in events],
+            "updated": time.time(),
+        }
+        tmp = path.with_suffix(".tmp")
+        tmp.write_text(json.dumps(state, ensure_ascii=False))
+        tmp.replace(path)
+
+    return write
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("videos", type=Path)
@@ -87,6 +112,9 @@ def main() -> None:
     ap.add_argument("--rules", type=Path, default=None)
     ap.add_argument("--only", nargs="*", help="имена видео без расширения, например Х-20 X-2")
     ap.add_argument("--rescore", action="store_true", help="не вызывать модель, применить правила к сохранённым шкалам")
+    ap.add_argument("--skip-done", action="store_true", help="пропустить видео, для которых уже есть результат в --out")
+    ap.add_argument("--live", type=Path, default=None,
+                    help="писать сюда JSON живого просмотра (кадр, ответы, события) после каждого кадра")
     args = ap.parse_args()
 
     labels = load_labels(args.labels)
@@ -108,8 +136,13 @@ def main() -> None:
             results[name] = {"verdict": "violation" if events else "no_violation",
                              "violations": [{"timecode_sec": round(e.t, 1), "type": e.rule["type"]} for e in events]}
             continue
+        if args.skip_done and saved.exists():
+            results[name] = json.loads(saved.read_text())
+            continue
         t0 = time.monotonic()
-        res = pipeline.analyze_video(name, video, rules_path=args.rules)
+        on_frame = make_live_writer(args.live, name, labels.get(name), cfg, done=len(results), total=len(videos)) \
+            if args.live else None
+        res = pipeline.analyze_video(name, video, rules_path=args.rules, on_frame=on_frame)
         elapsed = time.monotonic() - t0
         for v in res["violations"]:
             v["evidence_frames"] = f"<{len(v['evidence_frames'])} frames>"
