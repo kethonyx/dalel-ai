@@ -41,6 +41,20 @@ export type StoredInvestigation = {
   verdict: string | null
   violationCount: number
   error: string | null
+  workerId?: string | null
+}
+
+export type Worker = { id: string; name: string; createdAt: string; videoCount: number }
+export type WorkerVideo = {
+  videoId: string
+  workerId: string
+  fileName: string
+  size: number
+  durationSeconds: number | null
+  createdAt: string
+  jobId: string | null
+  status: AnalysisStatus | null
+  streamUrl: string
 }
 
 const HISTORY_KEY = 'fortebank-compliance-investigations-v1'
@@ -120,10 +134,10 @@ function responseError(response: XMLHttpRequest) {
   return `Не удалось загрузить видео (HTTP ${response.status}).`
 }
 
-export function uploadVideo(file: File, onProgress: (percent: number) => void): Promise<UiAnalyzeResponse> {
+export function uploadVideo(file: File, onProgress: (percent: number) => void, workerId?: string): Promise<UiAnalyzeResponse> {
   return new Promise((resolve, reject) => {
     const request = new XMLHttpRequest()
-    request.open('POST', '/ui/analyze')
+    request.open('POST', workerId ? `/api/v1/workers/${encodeURIComponent(workerId)}/videos` : '/ui/analyze')
     request.responseType = 'json'
     request.timeout = 10 * 60 * 1000
     request.upload.onprogress = (event) => {
@@ -160,6 +174,66 @@ export async function getJobStatus(jobId: string): Promise<UiJobResponse> {
   return parseJobResponse(await response.json())
 }
 
+async function apiRequest<T>(path: string, init?: RequestInit): Promise<T> {
+  const response = await fetch(`/api/v1${path}`, {
+    ...init,
+    headers: { Accept: 'application/json', ...(init?.body ? { 'Content-Type': 'application/json' } : {}), ...init?.headers },
+  })
+  if (!response.ok) {
+    if (response.status === 401) throw new Error('Не удалось подтвердить доступ. Проверьте настройки и повторите попытку.')
+    const payload: unknown = await response.json().catch(() => null)
+    const detail = payload && typeof payload === 'object' ? (payload as Record<string, unknown>).detail : null
+    throw new Error(typeof detail === 'string' ? detail : `Не удалось выполнить запрос (${response.status}).`)
+  }
+  return response.json() as Promise<T>
+}
+
+export async function listWorkers(): Promise<Worker[]> {
+  const result = await apiRequest<{ items: Array<{ worker_id: string; name: string; created_at: string; video_count: number }> }>('/workers?limit=100&offset=0')
+  return result.items.map((worker) => ({ id: worker.worker_id, name: worker.name, createdAt: worker.created_at, videoCount: worker.video_count }))
+}
+
+export async function createWorker(name: string): Promise<Worker> {
+  const worker = await apiRequest<{ worker_id: string; name: string; created_at: string }>('/new-worker', {
+    method: 'POST',
+    body: JSON.stringify({ name }),
+  })
+  return { id: worker.worker_id, name: worker.name, createdAt: worker.created_at, videoCount: 0 }
+}
+
+export async function assignVideoWorker(videoId: string, workerId: string | null): Promise<void> {
+  await apiRequest(`/videos/${encodeURIComponent(videoId)}/worker`, {
+    method: 'PATCH',
+    body: JSON.stringify({ worker_id: workerId }),
+  })
+}
+
+export async function listWorkerVideos(workerId: string): Promise<WorkerVideo[]> {
+  const result = await apiRequest<{ items: Array<{
+    video_id: string
+    worker_id: string
+    original_name: string
+    size_bytes: number
+    duration_sec: number | null
+    created_at: string
+    job_id: string | null
+    latest_completed_job_id: string | null
+    analysis_status: AnalysisStatus | null
+    stream_url: string
+  }> }>(`/workers/${encodeURIComponent(workerId)}/videos?limit=100&offset=0`)
+  return result.items.map((video) => ({
+    videoId: video.video_id,
+    workerId: video.worker_id,
+    fileName: video.original_name,
+    size: video.size_bytes,
+    durationSeconds: video.duration_sec,
+    createdAt: video.created_at,
+    jobId: video.job_id ?? video.latest_completed_job_id,
+    status: video.analysis_status,
+    streamUrl: video.stream_url,
+  }))
+}
+
 export function loadInvestigations(): StoredInvestigation[] {
   try {
     const stored: unknown = JSON.parse(localStorage.getItem(HISTORY_KEY) ?? '[]')
@@ -186,6 +260,7 @@ export function loadInvestigations(): StoredInvestigation[] {
       verdict: typeof item.verdict === 'string' ? item.verdict : null,
       violationCount: typeof item.violationCount === 'number' ? item.violationCount : 0,
       error: typeof item.error === 'string' ? item.error : null,
+      workerId: typeof item.workerId === 'string' ? item.workerId : null,
     }))
   } catch {
     return []

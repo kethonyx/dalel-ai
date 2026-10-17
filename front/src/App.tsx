@@ -22,16 +22,16 @@ import {
   X,
   type LucideIcon,
 } from 'lucide-react'
-import { getJobStatus, loadInvestigations, saveInvestigations, uploadVideo, type AnalysisStatus, type AnalysisViolation, type StoredInvestigation, type UiJobResponse } from './services/videoApi'
+import { assignVideoWorker, getJobStatus, listWorkers, loadInvestigations, saveInvestigations, uploadVideo, type AnalysisStatus, type AnalysisViolation, type StoredInvestigation, type UiJobResponse, type Worker, type WorkerVideo } from './services/videoApi'
 import { InvestigationPoster } from './components/InvestigationPoster'
 import { InvestigationDetail } from './components/InvestigationDetail'
-import { employees } from './employees'
+import { EmployeesView } from './components/EmployeesView'
 import { getSavedReview, type ReviewDecision } from './hooks/useReviewStore'
 import './App.css'
 
 const MAX_FILE_SIZE = 200 * 1024 * 1024
 
-type Section = 'video' | 'investigations'
+type Section = 'video' | 'investigations' | 'employees'
 type Toast = { id: number; message: string } | null
 type SelectedVideo = { file: File | null; url: string; name: string; size: number; isObjectUrl: boolean; source: 'file' | 'server' }
 type InvestigationItem = StoredInvestigation & { file: File | null; violations: AnalysisViolation[] }
@@ -41,6 +41,7 @@ type UploadState = { fileName: string; size: number; progress: number; phase: 't
 const navItems: { id: Section; label: string; icon: LucideIcon }[] = [
   { id: 'video', label: 'Video Analysis', icon: Video },
   { id: 'investigations', label: 'Investigations', icon: FolderSearch },
+  { id: 'employees', label: 'Employees', icon: UserRound },
 ]
 
 function formatTime(seconds: number) {
@@ -59,6 +60,10 @@ function formatDate(value: string) {
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return 'Date unavailable'
   return new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium', timeStyle: 'short' }).format(date)
+}
+
+function currentTimestamp() {
+  return new Date().toISOString()
 }
 
 function caseReviewStatus(item: InvestigationItem): ReviewDecision {
@@ -108,6 +113,7 @@ function persistInvestigations(items: InvestigationItem[]) {
     verdict: item.verdict,
     violationCount: item.violationCount,
     error: item.error,
+    workerId: item.workerId ?? null,
   })))
 }
 
@@ -148,6 +154,7 @@ function InvestigationGrid({
   onOpen,
   onRemove,
   onNewVideo,
+  workers,
 }: {
   items: InvestigationItem[]
   loading: boolean
@@ -156,6 +163,7 @@ function InvestigationGrid({
   onOpen: (item: InvestigationItem) => void
   onRemove: (item: InvestigationItem) => void
   onNewVideo: () => void
+  workers: Worker[]
 }) {
   const reduceMotion = useReducedMotion()
   const [query, setQuery] = useState('')
@@ -177,13 +185,13 @@ function InvestigationGrid({
     { id: 'pending', label: 'Pending review' },
   ]
   const violationTotal = items.filter((item) => item.status === 'done' && hasViolation(item)).length
-  const unassignedTotal = items.filter((item) => !getSavedReview(item.jobId).employeeId).length
+  const unassignedTotal = items.filter((item) => !item.workerId).length
   const visibleItems = items
     .filter((item) => item.fileName.toLowerCase().includes(query.trim().toLowerCase()))
     .filter((item) => {
       if (filter === 'violations') return item.status === 'done' && hasViolation(item)
       if (filter === 'clean') return item.status === 'done' && !hasViolation(item)
-      if (filter === 'unassigned') return !getSavedReview(item.jobId).employeeId
+      if (filter === 'unassigned') return !item.workerId
       if (filter === 'pending') return caseReviewStatus(item) === 'pending'
       return true
     })
@@ -270,7 +278,7 @@ function InvestigationGrid({
             {visibleItems.map((item) => {
               const violation = hasViolation(item)
               const reviewStatus = caseReviewStatus(item)
-              const employee = employees.find((entry) => entry.id === getSavedReview(item.jobId).employeeId)
+              const employee = workers.find((entry) => entry.id === item.workerId)
               const statusLabel = item.status === 'processing' ? 'Processing' : item.status === 'failed' ? 'Failed' : 'Done'
               return <motion.article
                 key={item.jobId}
@@ -335,6 +343,10 @@ function App() {
   const [investigationsRevision, setInvestigationsRevision] = useState(0)
   const [uploadState, setUploadState] = useState<UploadState | null>(null)
   const [selectedInvestigation, setSelectedInvestigation] = useState<InvestigationItem | null>(null)
+  const [workers, setWorkers] = useState<Worker[]>([])
+  const [workersLoading, setWorkersLoading] = useState(false)
+  const [workersError, setWorkersError] = useState('')
+  const [uploadWorkerId, setUploadWorkerId] = useState('')
 
   const file = fileSelection?.file ?? null
   const fileUrl = fileSelection?.url ?? ''
@@ -406,12 +418,69 @@ function App() {
   }
 
   function navigateToSection(nextSection: Section) {
+    if (nextSection === 'employees' || (nextSection === 'investigations' && workers.length === 0)) void refreshWorkers()
     if (nextSection === 'investigations' && investigationsRef.current.length > 0) {
       setInvestigationsLoading(true)
       setInvestigationsError('')
       if (section === 'investigations') setInvestigationsRevision((current) => current + 1)
     }
     setSection(nextSection)
+  }
+
+  async function refreshWorkers() {
+    setWorkersLoading(true)
+    setWorkersError('')
+    try {
+      setWorkers(await listWorkers())
+    } catch (error) {
+      setWorkersError(error instanceof Error ? error.message : 'Could not load employees.')
+    } finally {
+      setWorkersLoading(false)
+    }
+  }
+
+  function handleWorkerCreated(worker: Worker) {
+    setWorkers((current) => [worker, ...current.filter((entry) => entry.id !== worker.id)])
+    showToast(`${worker.name} added to employees`)
+  }
+
+  async function handleAssignWorker(videoId: string, workerId: string | null) {
+    await assignVideoWorker(videoId, workerId)
+    const next = investigationsRef.current.map((item) => item.videoId === videoId ? { ...item, workerId } : item)
+    investigationsRef.current = next
+    setInvestigations(next)
+    persistInvestigations(next)
+    setSelectedInvestigation((current) => current && current.videoId === videoId ? { ...current, workerId } : current)
+    void refreshWorkers()
+    showToast(workerId ? 'Worker linked to investigation' : 'Worker removed from investigation')
+  }
+
+  async function openWorkerVideo(video: WorkerVideo) {
+    if (!video.jobId) return
+    let item: InvestigationItem = {
+      videoId: video.videoId,
+      jobId: video.jobId,
+      fileName: video.fileName,
+      size: video.size,
+      durationSeconds: video.durationSeconds,
+      createdAt: video.createdAt,
+      status: video.status === 'done' || video.status === 'failed' ? video.status : 'processing',
+      stage: '',
+      progress: 0,
+      streamUrl: video.streamUrl,
+      verdict: null,
+      violationCount: 0,
+      error: null,
+      file: null,
+      violations: [],
+      workerId: video.workerId,
+    }
+    try {
+      item = applyJobStatus(item, await getJobStatus(video.jobId))
+    } catch {
+      showToast('Showing the latest available investigation details')
+    }
+    setSelectedInvestigation(item)
   }
 
   function retryInvestigations() {
@@ -480,14 +549,14 @@ function App() {
     try {
       const accepted = await uploadVideo(currentFile, (progress) => {
         setUploadState((current) => current?.phase === 'transferring' ? { ...current, progress } : current)
-      })
+      }, uploadWorkerId || undefined)
       let item: InvestigationItem = {
         videoId: accepted.video_id,
         jobId: accepted.job_id,
         fileName: currentFile.name,
         size: currentFile.size,
         durationSeconds: currentDuration,
-        createdAt: new Date().toISOString(),
+        createdAt: currentTimestamp(),
         status: accepted.status,
         stage: 'В очереди',
         progress: 0,
@@ -497,6 +566,7 @@ function App() {
         error: null,
         file: currentFile,
         violations: [],
+        workerId: uploadWorkerId || null,
       }
       upsertInvestigation(item)
       setUploadState({ fileName: item.fileName, size: item.size, progress: item.progress * 100, phase: 'processing', status: 'processing', stage: item.stage, jobId: item.jobId })
@@ -555,6 +625,7 @@ function App() {
     setUploadState(null)
     setFileSelection(null)
     setFileDuration(null)
+    setUploadWorkerId('')
     if (openInvestigations) navigateToSection('investigations')
   }
 
@@ -614,7 +685,17 @@ function App() {
 
         <main className="page-content" id="video-analysis">
           <AnimatePresence mode="wait" initial={false}>
-            {section === 'investigations' ? (
+            {section === 'employees' ? (
+              <EmployeesView
+                key="employees"
+                workers={workers}
+                loading={workersLoading}
+                error={workersError}
+                onRefresh={refreshWorkers}
+                onCreated={handleWorkerCreated}
+                onOpenVideo={openWorkerVideo}
+              />
+            ) : section === 'investigations' ? (
               <InvestigationGrid
                 key="investigations"
                 items={investigations}
@@ -624,6 +705,7 @@ function App() {
                 onOpen={openInvestigation}
                 onRemove={removeInvestigation}
                 onNewVideo={() => navigateToSection('video')}
+                workers={workers}
               />
             ) : (
               <motion.div
@@ -670,6 +752,8 @@ function App() {
                           <div className="duration-meta"><Clock3 size={14} /><span>{fileDuration === null ? 'Duration unavailable' : formatTime(fileDuration)}</span></div>
                         </div>
                         {fileError && <p className="inline-file-error" role="alert"><AlertTriangle size={14} />{fileError}</p>}
+                        <label className="upload-worker-assignment"><span>Associate with employee</span><select value={uploadWorkerId} onChange={(event) => setUploadWorkerId(event.target.value)} disabled={uploadState !== null}><option value="">No employee selected</option>{workers.map((worker) => <option value={worker.id} key={worker.id}>{worker.name}</option>)}</select></label>
+                        {workers.length === 0 && <button className="worker-shortcut" type="button" onClick={() => navigateToSection('employees')}><UserRound size={12} /> Add a worker to link this recording <ArrowUpRight size={12} /></button>}
                         {file && <div className="upload-action-row"><button className="button-primary upload-video-button" type="button" onClick={startUpload} disabled={uploadState !== null}><CloudUpload size={15} /> Upload &amp; analyze</button><span>Video is saved after upload</span></div>}
                       </>
                     ) : (
@@ -689,6 +773,8 @@ function App() {
                           <div className="drop-corner drop-corner-tl" /><div className="drop-corner drop-corner-tr" /><div className="drop-corner drop-corner-bl" /><div className="drop-corner drop-corner-br" />
                         </div>
                         {fileError && <p className="upload-error" role="alert"><AlertTriangle size={14} />{fileError}</p>}
+                        <label className="upload-worker-assignment"><span>Associate with employee</span><select value={uploadWorkerId} onChange={(event) => setUploadWorkerId(event.target.value)} disabled={uploadState !== null}><option value="">No employee selected</option>{workers.map((worker) => <option value={worker.id} key={worker.id}>{worker.name}</option>)}</select></label>
+                        {workers.length === 0 && <button className="worker-shortcut" type="button" onClick={() => navigateToSection('employees')}><UserRound size={12} /> Add a worker to link this recording <ArrowUpRight size={12} /></button>}
                         <div className="intake-privacy"><ShieldCheck size={15} /><span>Nothing is sent until you choose Upload &amp; analyze.</span></div>
                       </>
                     )}
@@ -716,7 +802,7 @@ function App() {
         </main>
       </div>
 
-      {selectedInvestigation && <InvestigationDetail key={selectedInvestigation.jobId} item={selectedInvestigation} onClose={() => setSelectedInvestigation(null)} />}
+      {selectedInvestigation && <InvestigationDetail key={selectedInvestigation.jobId} item={selectedInvestigation} workers={workers} onAssignWorker={handleAssignWorker} onClose={() => setSelectedInvestigation(null)} />}
 
       <AnimatePresence>
         {uploadState && (
