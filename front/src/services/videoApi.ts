@@ -1,124 +1,201 @@
-export type VideoRecord = {
-  id: string
+export type AnalysisStatus = 'processing' | 'done' | 'failed'
+
+export type UiAnalyzeResponse = {
+  video_id: string
+  job_id: string
+  status: AnalysisStatus
+}
+
+export type EvidenceFrame = { timestamp_sec: number; image_base64: string }
+export type AnalysisViolation = {
+  type: string
+  timecode_sec: number
+  description: string
+  evidence_frames: EvidenceFrame[]
+  rule?: { document?: string; section?: string; url?: string } | null
+}
+
+export type UiJobResponse = {
+  job_id: string
+  status: AnalysisStatus
+  stage?: string
+  progress?: number
+  video_id?: string
+  stream_url?: string
+  verdict?: string
+  violations?: AnalysisViolation[]
+  error?: string
+}
+
+export type StoredInvestigation = {
+  videoId: string
+  jobId: string
   fileName: string
   size: number
   durationSeconds: number | null
   createdAt: string
-  videoUrl: string | null
-  source: 'server' | 'local-demo'
+  status: AnalysisStatus
+  stage: string
+  progress: number
+  streamUrl: string | null
+  verdict: string | null
+  violationCount: number
+  error: string | null
 }
 
-const uploadEndpoint = import.meta.env.VITE_VIDEO_UPLOAD_ENDPOINT?.trim() ?? ''
-const listEndpoint = import.meta.env.VITE_VIDEO_LIST_ENDPOINT?.trim() || uploadEndpoint
-const formField = import.meta.env.VITE_VIDEO_FORM_FIELD?.trim() || 'video'
+const HISTORY_KEY = 'fortebank-compliance-investigations-v1'
 
-export const videoApiConfigured = Boolean(uploadEndpoint)
-export const videoListConfigured = Boolean(listEndpoint)
+function isAnalysisStatus(value: unknown): value is AnalysisStatus {
+  return value === 'processing' || value === 'done' || value === 'failed'
+}
 
-function parseRecord(value: unknown, fallback?: { file?: File; durationSeconds?: number | null }): VideoRecord {
-  if (!value || typeof value !== 'object') throw new Error('The video service returned an invalid record.')
-  const record = value as Record<string, unknown>
-  if (typeof record.id !== 'string' || !record.id) throw new Error('The video service response is missing an id.')
-
-  const fileName = typeof record.fileName === 'string' ? record.fileName : fallback?.file?.name
-  if (!fileName) throw new Error('The video service response is missing a file name.')
-
-  const size = typeof record.size === 'number' && Number.isFinite(record.size) && record.size >= 0
-    ? record.size
-    : fallback?.file?.size
-  if (typeof size !== 'number') throw new Error('The video service response is missing the file size.')
-  const durationSeconds = typeof record.durationSeconds === 'number' && Number.isFinite(record.durationSeconds) && record.durationSeconds >= 0
-    ? record.durationSeconds
-    : fallback?.durationSeconds ?? null
-
-  return {
-    id: record.id,
-    fileName,
-    size,
-    durationSeconds,
-    createdAt: typeof record.createdAt === 'string' ? record.createdAt : new Date().toISOString(),
-    videoUrl: typeof record.videoUrl === 'string' ? record.videoUrl : null,
-    source: 'server',
+function parseAnalyzeResponse(value: unknown): UiAnalyzeResponse {
+  if (!value || typeof value !== 'object') throw new Error('Backend returned an invalid upload response.')
+  const payload = value as Record<string, unknown>
+  if (typeof payload.video_id !== 'string' || typeof payload.job_id !== 'string' || !isAnalysisStatus(payload.status)) {
+    throw new Error('Backend response is missing video_id, job_id, or a valid status.')
   }
+  return { video_id: payload.video_id, job_id: payload.job_id, status: payload.status }
 }
 
-function simulateProgress(onProgress: (progress: number) => void) {
-  return new Promise<void>((resolve) => {
-    const steps = [12, 28, 47, 69, 86, 100]
-    let index = 0
-    const timer = window.setInterval(() => {
-      onProgress(steps[index])
-      index += 1
-      if (index === steps.length) {
-        window.clearInterval(timer)
-        resolve()
-      }
-    }, 190)
+function parseViolations(value: unknown): AnalysisViolation[] | undefined {
+  if (!Array.isArray(value)) return undefined
+  return value.flatMap((entry) => {
+    if (!entry || typeof entry !== 'object') return []
+    const item = entry as Record<string, unknown>
+    const evidenceFrames: EvidenceFrame[] = Array.isArray(item.evidence_frames)
+      ? item.evidence_frames.flatMap((frame) => {
+          if (!frame || typeof frame !== 'object') return []
+          const record = frame as Record<string, unknown>
+          if (typeof record.image_base64 !== 'string') return []
+          return [{
+            timestamp_sec: typeof record.timestamp_sec === 'number' && Number.isFinite(record.timestamp_sec) ? record.timestamp_sec : 0,
+            image_base64: record.image_base64,
+          }]
+        })
+      : []
+    const ruleValue = item.rule && typeof item.rule === 'object' ? item.rule as Record<string, unknown> : null
+    return [{
+      type: typeof item.type === 'string' ? item.type : 'Detected event',
+      timecode_sec: typeof item.timecode_sec === 'number' && Number.isFinite(item.timecode_sec) ? Math.max(0, item.timecode_sec) : 0,
+      description: typeof item.description === 'string' ? item.description : 'No description provided.',
+      evidence_frames: evidenceFrames,
+      rule: ruleValue ? {
+        document: typeof ruleValue.document === 'string' ? ruleValue.document : undefined,
+        section: typeof ruleValue.section === 'string' ? ruleValue.section : undefined,
+        url: typeof ruleValue.url === 'string' ? ruleValue.url : undefined,
+      } : null,
+    }]
   })
 }
 
-export async function uploadVideo(
-  file: File,
-  durationSeconds: number | null,
-  onProgress: (progress: number) => void,
-): Promise<VideoRecord> {
-  if (!uploadEndpoint) {
-    await simulateProgress(onProgress)
-    return {
-      id: `demo-${crypto.randomUUID()}`,
-      fileName: file.name,
-      size: file.size,
-      durationSeconds,
-      createdAt: new Date().toISOString(),
-      videoUrl: null,
-      source: 'local-demo',
-    }
+function parseJobResponse(value: unknown): UiJobResponse {
+  if (!value || typeof value !== 'object') throw new Error('Backend returned an invalid job status.')
+  const payload = value as Record<string, unknown>
+  if (typeof payload.job_id !== 'string' || !isAnalysisStatus(payload.status)) {
+    throw new Error('Backend response is missing job_id or a valid status.')
   }
+  return {
+    job_id: payload.job_id,
+    status: payload.status,
+    stage: typeof payload.stage === 'string' ? payload.stage : undefined,
+    progress: typeof payload.progress === 'number' && Number.isFinite(payload.progress)
+      ? Math.min(1, Math.max(0, payload.progress))
+      : undefined,
+    video_id: typeof payload.video_id === 'string' ? payload.video_id : undefined,
+    stream_url: typeof payload.stream_url === 'string' ? payload.stream_url : undefined,
+    verdict: typeof payload.verdict === 'string' ? payload.verdict : undefined,
+    violations: parseViolations(payload.violations),
+    error: typeof payload.error === 'string' ? payload.error : undefined,
+  }
+}
 
+function responseError(response: XMLHttpRequest) {
+  const detail = response.response && typeof response.response === 'object'
+    ? (response.response as Record<string, unknown>).detail
+    : null
+  if (typeof detail === 'string') return detail
+  if (response.status === 413) return 'Видео превышает ограничение размера backend.'
+  if (response.status === 0) return 'Не удалось подключиться к backend. Проверьте, что он запущен.'
+  return `Не удалось загрузить видео (HTTP ${response.status}).`
+}
+
+export function uploadVideo(file: File, onProgress: (percent: number) => void): Promise<UiAnalyzeResponse> {
   return new Promise((resolve, reject) => {
     const request = new XMLHttpRequest()
-    request.open('POST', uploadEndpoint)
+    request.open('POST', '/ui/analyze')
     request.responseType = 'json'
     request.timeout = 10 * 60 * 1000
     request.upload.onprogress = (event) => {
-      if (!event.lengthComputable) return
-      onProgress(Math.min(94, Math.round((event.loaded / event.total) * 94)))
+      if (event.lengthComputable) onProgress(Math.min(99, Math.round((event.loaded / event.total) * 100)))
     }
     request.onload = () => {
       if (request.status < 200 || request.status >= 300) {
-        reject(new Error(`Video upload failed (${request.status}).`))
+        reject(new Error(responseError(request)))
         return
       }
       try {
-        const record = parseRecord(request.response, { file, durationSeconds })
+        const result = parseAnalyzeResponse(request.response)
         onProgress(100)
-        resolve(record)
+        resolve(result)
       } catch (error) {
-        reject(error instanceof Error ? error : new Error('The video service returned an invalid response.'))
+        reject(error instanceof Error ? error : new Error('Backend returned an invalid upload response.'))
       }
     }
-    request.onerror = () => reject(new Error('Could not reach the video service. Check the connection and try again.'))
-    request.ontimeout = () => reject(new Error('The video upload timed out. Try again.'))
+    request.onerror = () => reject(new Error('Не удалось подключиться к backend. Проверьте, что он запущен.'))
+    request.ontimeout = () => reject(new Error('Истекло время ожидания загрузки видео.'))
 
     const body = new FormData()
-    body.append(formField, file, file.name)
-    if (durationSeconds !== null && Number.isFinite(durationSeconds)) body.append('durationSeconds', String(durationSeconds))
+    body.append('file', file, file.name)
     request.send(body)
   })
 }
 
-export async function listVideos(): Promise<VideoRecord[]> {
-  if (!listEndpoint) return []
+export async function getJobStatus(jobId: string): Promise<UiJobResponse> {
+  const response = await fetch(`/ui/jobs/${encodeURIComponent(jobId)}`, { headers: { Accept: 'application/json' } })
+  if (!response.ok) {
+    if (response.status === 404) throw new Error('Backend не нашёл задание анализа.')
+    throw new Error(`Не удалось получить статус анализа (HTTP ${response.status}).`)
+  }
+  return parseJobResponse(await response.json())
+}
 
-  const response = await fetch(listEndpoint, { headers: { Accept: 'application/json' } })
-  if (!response.ok) throw new Error(`Could not load investigations (${response.status}).`)
-  const payload: unknown = await response.json()
-  const records = Array.isArray(payload)
-    ? payload
-    : payload && typeof payload === 'object' && Array.isArray((payload as { videos?: unknown }).videos)
-      ? (payload as { videos: unknown[] }).videos
-      : null
+export function loadInvestigations(): StoredInvestigation[] {
+  try {
+    const stored: unknown = JSON.parse(localStorage.getItem(HISTORY_KEY) ?? '[]')
+    if (!Array.isArray(stored)) return []
+    return stored.filter((item): item is StoredInvestigation => {
+      if (!item || typeof item !== 'object') return false
+      const record = item as Record<string, unknown>
+      return typeof record.videoId === 'string'
+        && typeof record.jobId === 'string'
+        && typeof record.fileName === 'string'
+        && typeof record.size === 'number'
+        && isAnalysisStatus(record.status)
+    }).slice(0, 100).map((item) => ({
+      videoId: item.videoId,
+      jobId: item.jobId,
+      fileName: item.fileName,
+      size: item.size,
+      durationSeconds: typeof item.durationSeconds === 'number' ? item.durationSeconds : null,
+      createdAt: typeof item.createdAt === 'string' ? item.createdAt : new Date().toISOString(),
+      status: item.status,
+      stage: typeof item.stage === 'string' ? item.stage : '',
+      progress: typeof item.progress === 'number' ? Math.min(1, Math.max(0, item.progress)) : 0,
+      streamUrl: typeof item.streamUrl === 'string' ? item.streamUrl : null,
+      verdict: typeof item.verdict === 'string' ? item.verdict : null,
+      violationCount: typeof item.violationCount === 'number' ? item.violationCount : 0,
+      error: typeof item.error === 'string' ? item.error : null,
+    }))
+  } catch {
+    return []
+  }
+}
 
-  if (!records) throw new Error('The video service response must be a list or an object with a videos list.')
-  return records.map((record) => parseRecord(record))
+export function saveInvestigations(items: StoredInvestigation[]) {
+  try {
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(items.slice(0, 100)))
+  } catch {
+    // The backend keeps the video; localStorage only remembers this browser's job IDs.
+  }
 }

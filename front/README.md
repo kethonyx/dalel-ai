@@ -1,36 +1,33 @@
 # ForteBank Compliance Intelligence · Frontend
 
-Dark review workspace prototype for selecting video recordings, sending them to a video service, and browsing saved recordings in **Investigations**.
+The React interface uploads video files to the FastAPI browser route, tracks analysis jobs, and provides an Investigations library with video posters, filters, case details, and human review controls.
 
-## Run locally
+## Run with the backend
+
+Start PostgreSQL and FastAPI from the repository root, then run the frontend:
 
 ```sh
 npm install
 npm run dev
 ```
 
-The upload endpoint is not configured by default. In that mode, the progress animation is a demo, and uploaded entries exist only in memory until the page is refreshed. No video is sent to a server or database.
+Open `http://127.0.0.1:5173`. Vite proxies `/ui/*` and signed `/api/v1/videos/*/stream` requests to `http://127.0.0.1:8000` by default. To use another backend origin, set `VITE_BACKEND_ORIGIN` in `front/.env.local` and restart Vite.
 
-## Connect the video API
+The browser calls `POST /ui/analyze` with multipart field `file`, then polls `GET /ui/jobs/{job_id}` for backend progress and results. The API key is never included in the frontend.
 
-Create a `.env.local` file in `front/` and set the endpoints supplied by the backend team:
+## Investigation history
 
-```dotenv
-VITE_VIDEO_UPLOAD_ENDPOINT=/api/videos
-VITE_VIDEO_LIST_ENDPOINT=/api/videos
-VITE_VIDEO_FORM_FIELD=video
-```
+The documented `/ui/*` routes do not expose a global video list. The protected `/api/v1/videos` route requires `X-API-Key`, which must not be shipped in browser code. The frontend therefore saves this browser's `video_id` and `job_id` pairs in `localStorage` and refreshes each job through the unauthenticated UI route. The video and analysis data themselves are stored by the backend. History is per browser until cookie or server-side authentication is added.
 
-`VITE_VIDEO_LIST_ENDPOINT` defaults to the upload endpoint, so one collection route can support both `POST` and `GET`. Set it separately if the backend uses different routes. `VITE_VIDEO_FORM_FIELD` defaults to `video`.
+Employee assignment, per-event Confirm/Dismiss decisions, and reviewer comments are also stored locally under each `job_id`. They are manual review metadata and are not sent to the backend yet. Failed jobs can be removed from the browser's library; this does not delete the stored backend video.
 
-The frontend currently expects this contract; adjust `src/services/videoApi.ts` when the backend contract is confirmed:
+## Backend constraints
 
-- `POST` the upload endpoint with `multipart/form-data`, using the configured file field and an optional `durationSeconds` field.
-- Return a JSON record with `id`, `fileName`, and `size`. `durationSeconds`, `createdAt`, and `videoUrl` are optional. `videoUrl` should be a browser-playable URL for the saved video.
-- `GET` the list endpoint and return either an array of records or `{ "videos": [...] }` using the same record shape.
-- Return a successful `2xx` response only after the file and record have been accepted. Upload progress reflects bytes sent by the browser; it does not represent server-side processing.
-
-The UI distinguishes a successful service response from local demo entries. The analysis service is not connected, so a stored recording is not presented as analyzed.
+- Supported extensions: `.mov`, `.mp4`, `.m4v`.
+- Maximum upload size: 200 MB by default (`MAX_UPLOAD_MB` on the backend).
+- Upload starts analysis immediately. Upload progress is measured by browser bytes sent; analysis progress and stages come from the job endpoint.
+- Playback uses the short-lived signed `stream_url` returned by the UI job endpoint.
+- The backend defaults to `VLM_BACKEND=stub`; configure the local model service separately if real model analysis is required.
 
 ## Checks
 
