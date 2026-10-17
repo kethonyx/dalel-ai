@@ -137,7 +137,7 @@ class OpenAILocalBackend:
             import httpx
 
             try:
-                resp = httpx.get(f"{self.base_url}/models", headers=self.headers, timeout=10)
+                resp = httpx.get(f"{self.base_url}/models", headers=self.headers, timeout=httpx.Timeout(10.0, connect=5.0))
                 resp.raise_for_status()
                 self._model_id = resp.json()["data"][0]["id"]
             except Exception as exc:
@@ -161,8 +161,9 @@ class OpenAILocalBackend:
             ],
         }
         try:
+            # connect=5: упавший туннель обнаруживается за секунды, а не за весь таймаут
             resp = httpx.post(f"{self.base_url}/chat/completions", json=payload, headers=self.headers,
-                              timeout=self.timeout)
+                              timeout=httpx.Timeout(self.timeout, connect=5.0))
             resp.raise_for_status()
             return resp.json()["choices"][0]["message"]["content"]
         except Exception as exc:  # сеть, формат ответа, таймаут
@@ -186,7 +187,77 @@ class OpenAILocalBackend:
         return out
 
 
+class FailoverBackend:
+    """Несколько серверов модели по приоритету: основной (например, 30B на кластере) и запасные.
+
+    Перед каждым видео select() выбирает первый отвечающий. Если запрос посреди видео падает
+    (туннель, VPN, задача на кластере кончилась), сервер помечается недоступным, запрос
+    повторяется на следующем — видео досчитывается на запасной модели, жюри получает ответ.
+    """
+
+    name = "failover"
+
+    def __init__(self, backends: list[OpenAILocalBackend]):
+        import threading
+
+        self.backends = backends
+        self.i: int | None = None
+        self.switches: list[str] = []
+        self._lock = threading.Lock()
+
+    @staticmethod
+    def _alive(b: OpenAILocalBackend) -> bool:
+        b._model_id = None  # перепроверить: на тот же адрес могли поднять другую модель
+        try:
+            return bool(b.model_id)
+        except VLMError:
+            return False
+
+    def select(self, start: int = 0) -> str:
+        with self._lock:
+            for k in range(start, len(self.backends)):
+                if self._alive(self.backends[k]):
+                    self.i = k
+                    return self.backends[k].model_id
+            self.i = None
+        raise VLMError("Ни один сервер модели не отвечает: " + ", ".join(b.base_url for b in self.backends))
+
+    def current(self) -> OpenAILocalBackend:
+        if self.i is None:
+            self.select()
+        return self.backends[self.i]
+
+    @property
+    def model_id(self) -> str:
+        return self.current().model_id
+
+    def _call(self, method: str, *args):
+        b = self.current()
+        try:
+            return getattr(b, method)(*args)
+        except VLMError as exc:
+            k = self.backends.index(b)
+            if k + 1 >= len(self.backends):
+                raise
+            self.switches.append(f"{b.base_url} не ответил ({str(exc)[:80]}), переход на запасной")
+            self.select(k + 1)
+            return getattr(self.current(), method)(*args)
+
+    def ask(self, jpeg, question):
+        return self._call("ask", jpeg, question)
+
+    def ask_choice(self, jpeg, question, options):
+        return self._call("ask_choice", jpeg, question, options)
+
+    def ground(self, jpeg, labels, width, height):
+        return self._call("ground", jpeg, labels, width, height)
+
+
 _backend = None
+
+
+def _split(value: str) -> list[str]:
+    return [v.strip() for v in (value or "").split(",") if v.strip()]
 
 
 def get_backend():
@@ -195,11 +266,28 @@ def get_backend():
         if config.VLM_BACKEND == "stub":
             _backend = StubBackend()
         elif config.VLM_BACKEND == "openai_local":
-            _backend = OpenAILocalBackend(config.VLM_BASE_URL, config.VLM_MODEL, config.VLM_TIMEOUT_SEC,
-                                          config.VLM_API_KEY)
+            # VLM_BASE_URL / VLM_API_KEY — один адрес или несколько через запятую (основной, запасные);
+            # ключ на позиции i относится к адресу i, недостающие ключи — пустые
+            urls, keys = _split(config.VLM_BASE_URL), _split(config.VLM_API_KEY)
+            _backend = FailoverBackend([
+                OpenAILocalBackend(u, config.VLM_MODEL, config.VLM_TIMEOUT_SEC, keys[i] if i < len(keys) else "")
+                for i, u in enumerate(urls)])
         else:
             raise VLMError(f"Неизвестный VLM_BACKEND: {config.VLM_BACKEND!r}")
     return _backend
+
+
+def select_model() -> str:
+    """Перед видео: выбрать первый отвечающий сервер (основной, если он снова доступен)."""
+    b = get_backend()
+    if isinstance(b, FailoverBackend):
+        b.switches = []
+        return b.select()
+    return b.model_id
+
+
+def switches() -> list[str]:
+    return list(getattr(get_backend(), "switches", []))
 
 
 def model_id() -> str:
