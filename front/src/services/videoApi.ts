@@ -50,10 +50,10 @@ function isAnalysisStatus(value: unknown): value is AnalysisStatus {
 }
 
 function parseAnalyzeResponse(value: unknown): UiAnalyzeResponse {
-  if (!value || typeof value !== 'object') throw new Error('Backend returned an invalid upload response.')
+  if (!value || typeof value !== 'object') throw new Error('The upload response was invalid.')
   const payload = value as Record<string, unknown>
   if (typeof payload.video_id !== 'string' || typeof payload.job_id !== 'string' || !isAnalysisStatus(payload.status)) {
-    throw new Error('Backend response is missing video_id, job_id, or a valid status.')
+    throw new Error('The upload response is missing required details.')
   }
   return { video_id: payload.video_id, job_id: payload.job_id, status: payload.status }
 }
@@ -90,10 +90,10 @@ function parseViolations(value: unknown): AnalysisViolation[] | undefined {
 }
 
 function parseJobResponse(value: unknown): UiJobResponse {
-  if (!value || typeof value !== 'object') throw new Error('Backend returned an invalid job status.')
+  if (!value || typeof value !== 'object') throw new Error('The analysis status response was invalid.')
   const payload = value as Record<string, unknown>
   if (typeof payload.job_id !== 'string' || !isAnalysisStatus(payload.status)) {
-    throw new Error('Backend response is missing job_id or a valid status.')
+    throw new Error('The analysis status response is missing required details.')
   }
   return {
     job_id: payload.job_id,
@@ -115,8 +115,8 @@ function responseError(response: XMLHttpRequest) {
     ? (response.response as Record<string, unknown>).detail
     : null
   if (typeof detail === 'string') return detail
-  if (response.status === 413) return 'Видео превышает ограничение размера backend.'
-  if (response.status === 0) return 'Не удалось подключиться к backend. Проверьте, что он запущен.'
+  if (response.status === 413) return 'Размер видео превышает допустимое ограничение.'
+  if (response.status === 0) return 'Не удалось подключиться к сервису. Проверьте подключение и повторите попытку.'
   return `Не удалось загрузить видео (HTTP ${response.status}).`
 }
 
@@ -139,10 +139,10 @@ export function uploadVideo(file: File, onProgress: (percent: number) => void): 
         onProgress(100)
         resolve(result)
       } catch (error) {
-        reject(error instanceof Error ? error : new Error('Backend returned an invalid upload response.'))
+        reject(error instanceof Error ? error : new Error('The upload response was invalid.'))
       }
     }
-    request.onerror = () => reject(new Error('Не удалось подключиться к backend. Проверьте, что он запущен.'))
+    request.onerror = () => reject(new Error('Не удалось подключиться к сервису. Проверьте подключение и повторите попытку.'))
     request.ontimeout = () => reject(new Error('Истекло время ожидания загрузки видео.'))
 
     const body = new FormData()
@@ -154,7 +154,7 @@ export function uploadVideo(file: File, onProgress: (percent: number) => void): 
 export async function getJobStatus(jobId: string): Promise<UiJobResponse> {
   const response = await fetch(`/ui/jobs/${encodeURIComponent(jobId)}`, { headers: { Accept: 'application/json' } })
   if (!response.ok) {
-    if (response.status === 404) throw new Error('Backend не нашёл задание анализа.')
+    if (response.status === 404) throw new Error('Задание анализа не найдено.')
     throw new Error(`Не удалось получить статус анализа (HTTP ${response.status}).`)
   }
   return parseJobResponse(await response.json())
@@ -196,6 +196,6 @@ export function saveInvestigations(items: StoredInvestigation[]) {
   try {
     localStorage.setItem(HISTORY_KEY, JSON.stringify(items.slice(0, 100)))
   } catch {
-    // The backend keeps the video; localStorage only remembers this browser's job IDs.
+    // The service keeps the video; this list remembers job IDs for this browser.
   }
 }
