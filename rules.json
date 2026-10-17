@@ -1,28 +1,341 @@
 {
-  "version": 1,
-  "note": "Правила-гипотезы. Каждое правило включается ('enabled': true) только после того, как (1) тип подтверждён на роликах датасета и (2) источник найден и проверен вручную на adilet.zan.kz / в актах НБРК. Пока source.verified = false, сервис пишет в описании «норматив уточняется» и НЕ выдумывает ссылку.",
-  "rules": [
+  "version": 2,
+  "note": "probes — вопросы к модели по каждому кадру (yes/no). rules — условия над последовательностью ответов. Ссылки сверены с текстом актов (docs/norms.md). Где связь нормы с видео — трактовка, это сказано в why. Порядок probes важен: вопросы к одному кропу идут подряд (кэш картинки в llama-server), а условия when ссылаются только на уже заданные вопросы.",
+  "zone": {
+    "labels": [
+      "cashier desk",
+      "metal safe",
+      "banknote counting machine"
+    ],
+    "pad_x": 0.15,
+    "pad_top": 0.55,
+    "pad_bottom": 0.2
+  },
+  "probes": [
     {
-      "id": "extra_person_in_cashier_zone",
-      "enabled": false,
-      "hypothesis": true,
-      "type": "Посторонний в зоне кассира",
-      "question": "Находится ли за стойкой кассира, в рабочей зоне кассира, кроме самого кассира ещё хотя бы один человек? Ответь yes, no или unclear.",
-      "observation": "В рабочей зоне кассира виден более чем один человек",
-      "why": null,
-      "min_consecutive": 2,
-      "source": {"document": null, "section": null, "url": null, "verified": false}
+      "id": "cashier_seated",
+      "crop": "zone",
+      "question": "Is a person sitting in the chair at the cashier desk, on the employee side next to the laptop and the counting machine?"
     },
     {
-      "id": "cash_unattended_on_counter",
-      "enabled": false,
-      "hypothesis": true,
-      "type": "Денежная наличность без присмотра",
-      "question": "Лежат ли на стойке банкноты или пачки денег, пока кассира нет на рабочем месте? Ответь yes, no или unclear.",
-      "observation": "На стойке видны деньги, кассир отсутствует на рабочем месте",
-      "why": null,
-      "min_consecutive": 2,
-      "source": {"document": null, "section": null, "url": null, "verified": false}
+      "id": "safe_open",
+      "crop": "zone",
+      "question": "Is the door of the grey metal safe (cabinet) open?"
+    },
+    {
+      "id": "cash_on_desk",
+      "crop": "zone",
+      "question": "Are banknotes, a bundle of cash or a cash bag lying on the desk (not held in someone's hand)?"
+    },
+    {
+      "id": "food_drink",
+      "crop": "zone",
+      "every": 2,
+      "question": "Is there a cup, bottle, food or a drink on the desk or in the employee's hands?"
+    },
+    {
+      "id": "personal_items",
+      "crop": "zone",
+      "every": 2,
+      "question": "Is there a coat, jacket, scarf or handbag lying on the desk?"
+    },
+    {
+      "id": "visitor",
+      "crop": "zone",
+      "question": "Besides the employee at the desk, is there another person (a visitor) in the picture?"
+    },
+    {
+      "id": "crowd",
+      "crop": "zone",
+      "when": {
+        "visitor": "yes"
+      },
+      "question": "Are there three or more people in the picture?"
+    },
+    {
+      "id": "cash_handover",
+      "crop": "zone",
+      "when": {
+        "visitor": "yes"
+      },
+      "question": "Is one person passing banknotes or a bag to another person across the desk right now?"
+    },
+    {
+      "id": "id_shown",
+      "crop": "zone",
+      "when": {
+        "visitor": "yes"
+      },
+      "question": "Is someone holding up or handing over a small plastic ID card or document (not banknotes)?"
+    },
+    {
+      "id": "bag",
+      "crop": "zone",
+      "when": {
+        "visitor": "yes"
+      },
+      "question": "Is a green cash-collection bag visible?"
+    },
+    {
+      "id": "screen_unlocked",
+      "crop": "zone",
+      "when": {
+        "cashier_seated": "no"
+      },
+      "question": "Does the laptop screen show an open program, document or spreadsheet (not black and not a lock screen with a picture)?"
+    },
+    {
+      "id": "person_in_room",
+      "crop": "full",
+      "when": {
+        "cashier_seated": "no"
+      },
+      "question": "Is any person visible in the room?"
+    },
+    {
+      "id": "key_in_safe",
+      "crop": "safe",
+      "when": {
+        "cashier_seated": "no"
+      },
+      "question": "Is a key sticking out of the lock on the safe door?"
+    }
+  ],
+  "rules": [
+    {
+      "id": "cash_unattended",
+      "enabled": true,
+      "kind": "state",
+      "all": {
+        "cash_on_desk": "yes",
+        "cashier_seated": "no"
+      },
+      "min_sec": 2,
+      "type": "Наличные оставлены без присмотра",
+      "observation": "На столе кассира лежат наличные или сумка с ценностями, кассира за рабочим местом нет",
+      "why": "Вне обслуживания клиента наличные должны храниться в закрывающемся на ключ устройстве.",
+      "source": {
+        "document": "Правила осуществления кассовых операций… (постановление Правления НБРК от 29.11.2019 № 231)",
+        "section": "п. 20, абз. 2",
+        "url": "https://adilet.zan.kz/rus/docs/V1900019680",
+        "verified": true
+      }
+    },
+    {
+      "id": "cash_left_on_desk",
+      "enabled": true,
+      "kind": "state",
+      "all": {
+        "cash_on_desk": "yes",
+        "cashier_seated": "yes"
+      },
+      "min_sec": 5,
+      "type": "Наличные открыто на рабочем месте",
+      "observation": "Наличные долго лежат открыто на столе кассира",
+      "why": "На рабочем месте допускаются только деньги обслуживаемого клиента; ранее принятые хранятся в закрывающемся устройстве.",
+      "source": {
+        "document": "Правила осуществления кассовых операций… (постановление Правления НБРК от 29.11.2019 № 231)",
+        "section": "п. 20, абз. 2",
+        "url": "https://adilet.zan.kz/rus/docs/V1900019680",
+        "verified": true
+      }
+    },
+    {
+      "id": "safe_open_while_seated",
+      "enabled": true,
+      "kind": "state",
+      "all": {
+        "safe_open": "yes",
+        "cashier_seated": "yes"
+      },
+      "min_sec": 3,
+      "type": "Сейф оставлен открытым",
+      "observation": "Дверца сейфа открыта, кассир работает за столом, а не с сейфом",
+      "why": "Наличные вне операции хранятся в закрытом на ключ устройстве.",
+      "source": {
+        "document": "Правила осуществления кассовых операций… (постановление Правления НБРК от 29.11.2019 № 231)",
+        "section": "п. 20, абз. 2",
+        "url": "https://adilet.zan.kz/rus/docs/V1900019680",
+        "verified": true
+      }
+    },
+    {
+      "id": "safe_open_room_empty",
+      "enabled": true,
+      "kind": "state",
+      "all": {
+        "safe_open": "yes",
+        "person_in_room": "no"
+      },
+      "min_sec": 2,
+      "type": "Сейф оставлен открытым",
+      "observation": "Дверца сейфа открыта, в помещении никого нет",
+      "why": "Наличные вне операции хранятся в закрытом на ключ устройстве.",
+      "source": {
+        "document": "Правила осуществления кассовых операций… (постановление Правления НБРК от 29.11.2019 № 231)",
+        "section": "п. 20, абз. 2",
+        "url": "https://adilet.zan.kz/rus/docs/V1900019680",
+        "verified": true
+      }
+    },
+    {
+      "id": "key_left_in_safe",
+      "enabled": true,
+      "kind": "state",
+      "all": {
+        "key_in_safe": "yes",
+        "cashier_seated": "no"
+      },
+      "min_sec": 2,
+      "type": "Ключ оставлен в замке сейфа",
+      "observation": "Кассира нет на рабочем месте, в замке сейфа виден ключ",
+      "why": "Ключи от устройств хранения наличных на рабочем месте хранятся так, чтобы исключить их несанкционированное использование.",
+      "source": {
+        "document": "Правила осуществления кассовых операций… (постановление Правления НБРК от 29.11.2019 № 231)",
+        "section": "п. 80",
+        "url": "https://adilet.zan.kz/rus/docs/V1900019680",
+        "verified": true
+      }
+    },
+    {
+      "id": "screen_unlocked_absent",
+      "enabled": true,
+      "kind": "state",
+      "all": {
+        "screen_unlocked": "yes",
+        "person_in_room": "no"
+      },
+      "min_sec": 2,
+      "type": "Рабочая станция не заблокирована при уходе",
+      "observation": "Кассир ушёл, на экране ноутбука открыта программа (экран не заблокирован)",
+      "why": "Смежная норма: регулятор требует блокировки рабочей станции при неактивности пользователя; уход без блокировки оставляет доступ к системе.",
+      "source": {
+        "document": "Требования к обеспечению информационной безопасности банков… (постановление Правления НБРК от 27.03.2018 № 48)",
+        "section": "п. 71, пп. 9",
+        "url": "https://adilet.zan.kz/rus/docs/V1800016772",
+        "verified": true
+      }
+    },
+    {
+      "id": "cash_without_id",
+      "enabled": true,
+      "kind": "missing_before",
+      "session": {
+        "visitor": "yes"
+      },
+      "trigger": {
+        "cash_handover": "yes",
+        "bag": "no"
+      },
+      "missing": {
+        "id_shown": "yes"
+      },
+      "type": "Приём наличных без предъявления документа",
+      "observation": "Посетитель передаёт наличные, до этого документ, удостоверяющий личность, не предъявлялся",
+      "why": "Кассир проводит визуальную идентификацию клиента по документу, удостоверяющему личность.",
+      "source": {
+        "document": "Правила осуществления кассовых операций… (постановление Правления НБРК от 29.11.2019 № 231)",
+        "section": "п. 19, пп. 1",
+        "url": "https://adilet.zan.kz/rus/docs/V1900019680",
+        "verified": true
+      }
+    },
+    {
+      "id": "bag_without_document",
+      "enabled": true,
+      "kind": "missing_before",
+      "session": {
+        "visitor": "yes"
+      },
+      "trigger": {
+        "cash_handover": "yes",
+        "bag": "yes"
+      },
+      "missing": {
+        "id_shown": "yes"
+      },
+      "type": "Приём инкассаторской сумки без проверки документов",
+      "observation": "Инкассаторская сумка передана кассиру без предъявления документа",
+      "why": "Приём от инкассации ведётся по препроводительному документу с проверкой сумки и пломбы.",
+      "source": {
+        "document": "Правила осуществления кассовых операций… (постановление Правления НБРК от 29.11.2019 № 231)",
+        "section": "п. 24",
+        "url": "https://adilet.zan.kz/rus/docs/V1900019680",
+        "verified": true
+      }
+    },
+    {
+      "id": "extra_person",
+      "enabled": true,
+      "kind": "state",
+      "all": {
+        "crowd": "yes"
+      },
+      "min_sec": 2,
+      "type": "Посторонний в кассовом помещении",
+      "observation": "В кассовом помещении одновременно находятся три и более человека",
+      "why": "Трактовка: кассовый узел изолируется от других помещений, доступ ограничен; присутствие лишних лиц при операции это нарушает.",
+      "source": {
+        "document": "Правила организации охраны и устройства помещений банков второго уровня… (рег. № 20075)",
+        "section": "п. 8, п. 16 пп. 1",
+        "url": "https://adilet.zan.kz/rus/docs/V2000020075",
+        "verified": true
+      }
+    },
+    {
+      "id": "safe_open_with_visitor",
+      "enabled": true,
+      "kind": "state",
+      "all": {
+        "safe_open": "yes",
+        "visitor": "yes"
+      },
+      "min_sec": 2,
+      "type": "Открытый сейф в присутствии постороннего",
+      "observation": "Дверца сейфа открыта, в помещении находится посетитель",
+      "why": "Наличные вне операции с клиентом хранятся в закрытом на ключ устройстве.",
+      "source": {
+        "document": "Правила осуществления кассовых операций… (постановление Правления НБРК от 29.11.2019 № 231)",
+        "section": "п. 20, абз. 2",
+        "url": "https://adilet.zan.kz/rus/docs/V1900019680",
+        "verified": true
+      }
+    },
+    {
+      "id": "food_at_workplace",
+      "enabled": true,
+      "kind": "state",
+      "all": {
+        "food_drink": "yes"
+      },
+      "min_sec": 2,
+      "type": "Еда или напитки на рабочем месте кассира",
+      "observation": "На рабочем месте кассира еда или напиток",
+      "why": "Трактовка: личные вещи работника хранятся вне кассового узла, разрешены лишь лекарства, медизделия и средства связи без фото/видео.",
+      "source": {
+        "document": "Правила осуществления кассовых операций… (постановление Правления НБРК от 29.11.2019 № 231)",
+        "section": "п. 12",
+        "url": "https://adilet.zan.kz/rus/docs/V1900019680",
+        "verified": true
+      }
+    },
+    {
+      "id": "personal_items",
+      "enabled": true,
+      "kind": "state",
+      "all": {
+        "personal_items": "yes"
+      },
+      "min_sec": 2,
+      "type": "Личные вещи на рабочем месте кассира",
+      "observation": "На столе кассира лежат личные вещи (верхняя одежда, сумка)",
+      "why": "Личные вещи работников банка хранятся вне кассового узла.",
+      "source": {
+        "document": "Правила осуществления кассовых операций… (постановление Правления НБРК от 29.11.2019 № 231)",
+        "section": "п. 12",
+        "url": "https://adilet.zan.kz/rus/docs/V1900019680",
+        "verified": true
+      }
     }
   ]
 }

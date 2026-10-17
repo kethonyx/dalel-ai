@@ -1,4 +1,7 @@
-"""Единый интерфейс к модели: ask(кадр, вопрос) -> dict.
+"""Единый интерфейс к модели.
+
+  ask(jpeg, question) -> {"answer": "yes|no|unclear", "reason": str}
+  ground(jpeg, labels) -> [{"label": str, "box": (x1, y1, x2, y2)}]   # доли 0..1
 
 Смена модели не должна ломать остальной код: достаточно другого бэкенда.
 Требование локальности (ТЗ, раздел 7): адрес модели обязан быть loopback или
@@ -12,21 +15,22 @@ import ipaddress
 import json
 import re
 import socket
-from pathlib import Path
 from urllib.parse import urlparse
 
 from . import config
 
 SYSTEM_PROMPT = (
-    "Ты анализируешь один кадр камеры, снятой сверху над банковской кассой. "
-    "Отвечай только тем, что действительно видно на кадре, без догадок. "
-    "Не определяй личности и не распознавай лица. "
-    "Если по кадру нельзя уверенно ответить, answer = \"unclear\". "
-    "Ответ строго в JSON без пояснений: "
-    "{\"answer\": \"yes|no|unclear\", \"what_is_visible\": \"одна короткая фраза о том, что видно\"}"
+    "You look at a frame from an overhead CCTV camera in a bank cashier room. "
+    "Answer only from what is clearly visible, never guess. Do not identify people."
 )
+# Одно слово в ответе: следующий вопрос к тому же кадру берёт картинку из кэша llama-server
+# и стоит ~0.3 с; пояснение добавляло бы ~1 с на каждый вопрос.
+YES_NO_SUFFIX = " Answer with one word: yes or no."
 
-_JSON_RE = re.compile(r"\{.*?\}", re.S)
+# Qwen2.5-VL отдаёт пиксели входного изображения, Qwen3-VL — шкалу 0..1000.
+BOX_SCALE = config.VLM_BOX_SCALE
+
+_JSON_LIST_RE = re.compile(r"\[.*\]", re.S)
 
 
 class VLMError(RuntimeError):
@@ -50,30 +54,46 @@ def assert_local_url(url: str) -> None:
             )
 
 
-def parse_answer(text: str) -> dict:
-    """Достаёт JSON из ответа модели; при любой проблеме возвращает unclear."""
-    for match in _JSON_RE.finditer(text or ""):
+def parse_yes_no(text: str) -> dict:
+    """Первое слово ответа -> yes/no/unclear, остальное -> причина."""
+    text = (text or "").strip()
+    m = re.match(r"\W*(yes|no|да|нет)\b[\s,.:;!-]*(.*)", text, re.I | re.S)
+    if not m:
+        return {"answer": "unclear", "reason": text[:200]}
+    word = m.group(1).lower()
+    answer = "yes" if word in {"yes", "да"} else "no"
+    return {"answer": answer, "reason": m.group(2).strip()[:200]}
+
+
+def parse_boxes(text: str, width: int, height: int) -> list[dict]:
+    match = _JSON_LIST_RE.search(text or "")
+    if not match:
+        return []
+    try:
+        items = json.loads(match.group(0))
+    except json.JSONDecodeError:
+        return []
+    out = []
+    for it in items:
         try:
-            data = json.loads(match.group(0))
-        except json.JSONDecodeError:
+            x1, y1, x2, y2 = (float(v) for v in it["bbox_2d"])
+        except (KeyError, TypeError, ValueError):
             continue
-        answer = str(data.get("answer", "")).strip().lower()
-        if answer in {"да", "true"}:
-            answer = "yes"
-        elif answer in {"нет", "false"}:
-            answer = "no"
-        if answer not in {"yes", "no", "unclear"}:
-            answer = "unclear"
-        visible = str(data.get("what_is_visible", "")).strip()[:300]
-        return {"answer": answer, "what_is_visible": visible}
-    return {"answer": "unclear", "what_is_visible": ""}
+        sx, sy = (BOX_SCALE, BOX_SCALE) if BOX_SCALE else (width, height)
+        box = (max(0.0, x1 / sx), max(0.0, y1 / sy), min(1.0, x2 / sx), min(1.0, y2 / sy))
+        if box[2] > box[0] and box[3] > box[1]:
+            out.append({"label": str(it.get("label", "")), "box": box})
+    return out
 
 
 class StubBackend:
     name = "stub"
 
-    def ask(self, image_path: Path, question: str) -> dict:
-        return {"answer": "unclear", "what_is_visible": "модель не подключена (stub)"}
+    def ask(self, jpeg: bytes, question: str) -> dict:
+        return {"answer": "unclear", "reason": "модель не подключена (stub)"}
+
+    def ground(self, jpeg: bytes, labels: list[str], width: int, height: int) -> list[dict]:
+        return []
 
 
 class OpenAILocalBackend:
@@ -87,32 +107,37 @@ class OpenAILocalBackend:
         self.model = model
         self.timeout = timeout
 
-    def ask(self, image_path: Path, question: str) -> dict:
+    def _chat(self, jpeg: bytes, text: str, max_tokens: int) -> str:
         import httpx  # импорт здесь, чтобы заглушка работала без httpx
 
-        b64 = base64.b64encode(Path(image_path).read_bytes()).decode()
+        b64 = base64.b64encode(jpeg).decode()
         payload = {
             "model": self.model,
             "temperature": 0,
-            "max_tokens": 120,
+            "max_tokens": max_tokens,
             "messages": [
                 {"role": "system", "content": SYSTEM_PROMPT},
-                {
-                    "role": "user",
-                    "content": [
-                        {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{b64}"}},
-                        {"type": "text", "text": question},
-                    ],
-                },
+                {"role": "user", "content": [
+                    {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{b64}"}},
+                    {"type": "text", "text": text},
+                ]},
             ],
         }
         try:
             resp = httpx.post(f"{self.base_url}/chat/completions", json=payload, timeout=self.timeout)
             resp.raise_for_status()
-            text = resp.json()["choices"][0]["message"]["content"]
+            return resp.json()["choices"][0]["message"]["content"]
         except Exception as exc:  # сеть, формат ответа, таймаут
             raise VLMError(f"Ошибка вызова модели: {exc}") from exc
-        return parse_answer(text)
+
+    def ask(self, jpeg: bytes, question: str) -> dict:
+        return parse_yes_no(self._chat(jpeg, question + YES_NO_SUFFIX, 4))
+
+    def ground(self, jpeg: bytes, labels: list[str], width: int, height: int) -> list[dict]:
+        names = ", ".join(f'"{l}"' for l in labels)
+        text = (f"Locate these objects: {names}. Output a JSON list of "
+                '{"label": ..., "bbox_2d": [x1, y1, x2, y2]}. Omit objects that are not visible.')
+        return parse_boxes(self._chat(jpeg, text, 300), width, height)
 
 
 _backend = None
@@ -130,6 +155,9 @@ def get_backend():
     return _backend
 
 
-def ask(image_path: Path, question: str) -> dict:
-    """ask(кадр, вопрос) -> {"answer": "yes|no|unclear", "what_is_visible": str}"""
-    return get_backend().ask(Path(image_path), question)
+def ask(jpeg: bytes, question: str) -> dict:
+    return get_backend().ask(jpeg, question)
+
+
+def ground(jpeg: bytes, labels: list[str], width: int, height: int) -> list[dict]:
+    return get_backend().ground(jpeg, labels, width, height)

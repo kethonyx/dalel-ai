@@ -1,48 +1,39 @@
 """Пайплайн анализа видео.
 
 Этапы:
-  1. нарезка кадров ffmpeg (FRAME_FPS, уменьшенные до FRAME_MAX_SIDE);
-  2. проверка включённых правил из rules.json: на каждый кадр узкий вопрос к
-     модели (vlm.ask); событие = серия из min_consecutive подряд ответов «yes»;
-  3. кадры-доказательства вырезаются из ОРИГИНАЛА видео в полном разрешении;
-  4. сборка JSON строго по схеме из ТЗ (раздел 10).
-
-Сюда же потом подключаются детектор людей и логика зон: они выдают
-кандидатные кадры, и только по ним вызывается модель (см. README).
+  1. нарезка кадров ffmpeg: до FRAME_FPS кадров/с, не больше MAX_FRAMES на видео;
+  2. рабочая зона: модель один раз находит стол, сейф и счётную машинку (grounding)
+     на нескольких кадрах — кропы не зависят от ракурса камеры;
+  3. по каждому кадру модель отвечает на короткие вопросы yes/no (probes из rules.json)
+     на нужном кропе; вопросы с полем `when` задаются только при выполнении условия;
+  4. правила (app/rules.py) ищут события на временной шкале ответов;
+  5. кадры-доказательства вырезаются из ОРИГИНАЛА видео в момент события;
+  6. сборка JSON строго по схеме из ТЗ (раздел 10).
 """
 from __future__ import annotations
 
 import base64
+import hashlib
+import io
 import json
+import math
 import subprocess
 import tempfile
+import threading
 import time
-from dataclasses import dataclass, field
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Callable
 
-from . import config, vlm
+from PIL import Image
+
+from . import config, rules as rule_engine, vlm
 
 ProgressFn = Callable[[str, float], None]
 
 
 class VideoError(RuntimeError):
     pass
-
-
-@dataclass
-class Frame:
-    t: float
-    path: Path
-
-
-@dataclass
-class Event:
-    type: str
-    t: float
-    description: str
-    evidence_times: list[float] = field(default_factory=list)
-    rule: dict | None = None
 
 
 # ---------------------------------------------------------------- ffmpeg ---
@@ -59,18 +50,25 @@ def probe_duration(video: Path) -> float:
         raise VideoError("Не удалось прочитать видео (ffprobe не вернул длительность)") from exc
 
 
-def extract_frames(video: Path, out_dir: Path, fps: float, max_side: int) -> list[Frame]:
+def sample_step(duration: float) -> float:
+    """Шаг между кадрами: 1/FRAME_FPS, но длинные видео прореживаются до MAX_FRAMES."""
+    n = max(1, min(config.MAX_FRAMES, math.ceil(duration * config.FRAME_FPS)))
+    return duration / n
+
+
+def extract_frames(video: Path, out_dir: Path, step: float) -> list[dict]:
+    """Кадр k приходится на момент k*step; длинная сторона до 1280 (из них режутся кропы)."""
     out_dir.mkdir(parents=True, exist_ok=True)
-    scale = f"scale='if(gt(iw,ih),{max_side},-2)':'if(gt(iw,ih),-2,{max_side})'"
+    scale = "scale='if(gt(iw,ih),min(1280,iw),-2)':'if(gt(iw,ih),-2,min(1280,ih))'"
     proc = subprocess.run(
-        ["ffmpeg", "-v", "error", "-i", str(video), "-vf", f"fps={fps},{scale}",
-         "-q:v", "3", str(out_dir / "f_%05d.jpg")],
+        ["ffmpeg", "-v", "error", "-i", str(video), "-vf", f"fps={1 / step:.6f},{scale}",
+         "-q:v", "2", str(out_dir / "f_%05d.jpg")],
         capture_output=True, text=True,
     )
     if proc.returncode != 0:
         raise VideoError(f"ffmpeg не смог нарезать кадры: {proc.stderr.strip()[:200]}")
     paths = sorted(out_dir.glob("f_*.jpg"))
-    return [Frame(t=i / fps, path=p) for i, p in enumerate(paths)]
+    return [{"t": round(k * step, 2), "path": p} for k, p in enumerate(paths)]
 
 
 def grab_frame_jpeg(video: Path, t: float, max_side: int) -> bytes:
@@ -86,12 +84,139 @@ def grab_frame_jpeg(video: Path, t: float, max_side: int) -> bytes:
     return proc.stdout
 
 
+# ----------------------------------------------------------------- images ---
+
+def to_jpeg(img: Image.Image, max_side: int, min_side: int = 0) -> bytes:
+    s = max_side / max(img.size)
+    if min_side and min(img.size) * s < min_side:
+        s = min_side / min(img.size)
+    if abs(s - 1) > 0.01:
+        img = img.resize((max(1, int(img.width * s)), max(1, int(img.height * s))), Image.LANCZOS)
+    buf = io.BytesIO()
+    img.save(buf, "JPEG", quality=90)
+    return buf.getvalue()
+
+
+def crop_frac(img: Image.Image, box: tuple[float, float, float, float]) -> Image.Image:
+    W, H = img.size
+    return img.crop((int(box[0] * W), int(box[1] * H), int(box[2] * W), int(box[3] * H)))
+
+
+def union(boxes: list[tuple]) -> tuple | None:
+    if not boxes:
+        return None
+    return (min(b[0] for b in boxes), min(b[1] for b in boxes),
+            max(b[2] for b in boxes), max(b[3] for b in boxes))
+
+
+def pad(box: tuple, px: float, top: float, bottom: float) -> tuple:
+    w, h = box[2] - box[0], box[3] - box[1]
+    return (max(0.0, box[0] - w * px), max(0.0, box[1] - h * top),
+            min(1.0, box[2] + w * px), min(1.0, box[3] + h * bottom))
+
+
+def find_zones(frames: list[dict], zone_cfg: dict) -> dict:
+    """Рабочая зона и сейф по 3 кадрам (начало, середина, конец): объединение рамок.
+
+    Если модель ничего не нашла, зона = весь кадр, а вопросы по сейфу пропускаются.
+    """
+    picks = [frames[0], frames[len(frames) // 2], frames[-1]] if len(frames) >= 3 else frames
+    found: dict[str, list] = {}
+    for fr in picks:
+        img = Image.open(fr["path"]).convert("RGB")
+        for item in vlm.ground(to_jpeg(img, config.FRAME_MAX_SIDE), zone_cfg["labels"], img.width, img.height):
+            found.setdefault(item["label"].lower(), []).append(item["box"])
+    zone = union([b for boxes in found.values() for b in boxes])
+    safe = union(found.get("metal safe", []))
+    return {
+        "zone": pad(zone, zone_cfg.get("pad_x", 0.15), zone_cfg.get("pad_top", 0.5),
+                    zone_cfg.get("pad_bottom", 0.2)) if zone else (0.0, 0.0, 1.0, 1.0),
+        "safe": pad(safe, 0.6, 0.4, 0.4) if safe else None,
+        "found": {k: len(v) for k, v in found.items()},
+    }
+
+
+# ------------------------------------------------------------------ probes ---
+
+class AnswerCache:
+    def __init__(self, root: Path):
+        self.root = root
+        self.root.mkdir(parents=True, exist_ok=True)
+
+    def _path(self, jpeg: bytes, question: str) -> Path:
+        h = hashlib.sha1(jpeg + b"\0" + question.encode() + b"\0" + config.VLM_MODEL.encode()).hexdigest()
+        return self.root / h[:2] / f"{h}.json"
+
+    def get(self, jpeg: bytes, question: str) -> dict | None:
+        p = self._path(jpeg, question)
+        try:
+            return json.loads(p.read_text())
+        except (OSError, ValueError):
+            return None
+
+    def put(self, jpeg: bytes, question: str, res: dict) -> None:
+        p = self._path(jpeg, question)
+        p.parent.mkdir(exist_ok=True)
+        p.write_text(json.dumps(res, ensure_ascii=False))
+
+
+def probe_frame(fr: dict, idx: int, probes: list[dict], zones: dict, cache: AnswerCache | None) -> dict:
+    img = Image.open(fr["path"]).convert("RGB")
+    crops: dict[str, bytes | None] = {}
+
+    def crop(kind: str) -> bytes | None:
+        if kind not in crops:
+            if kind == "full":
+                crops[kind] = to_jpeg(img, config.FULL_MAX_SIDE)
+            elif kind == "zone":
+                crops[kind] = to_jpeg(crop_frac(img, zones["zone"]), config.FRAME_MAX_SIDE)
+            elif kind == "safe":
+                crops[kind] = (to_jpeg(crop_frac(img, zones["safe"]), config.FRAME_MAX_SIDE, min_side=448)
+                               if zones.get("safe") else None)
+            else:
+                raise ValueError(f"Неизвестный кроп {kind!r}")
+        return crops[kind]
+
+    answers, reasons = {}, {}
+    for pr in probes:  # порядок важен: условия `when` ссылаются на уже заданные вопросы
+        if idx % int(pr.get("every", 1)):
+            continue
+        if not rule_engine.matches(answers, pr.get("when", {})):
+            continue
+        jpeg = crop(pr.get("crop", "zone"))
+        if jpeg is None:
+            continue
+        res = cache.get(jpeg, pr["question"]) if cache else None
+        if res is None:
+            res = vlm.ask(jpeg, pr["question"])
+            if cache and res["answer"] != "unclear":
+                cache.put(jpeg, pr["question"], res)
+        answers[pr["id"]] = res["answer"]
+        reasons[pr["id"]] = res["reason"]
+    return {"t": fr["t"], "a": answers, "r": reasons}
+
+
+def fill_sparse(timeline: list[dict], probes: list[dict]) -> None:
+    """Вопросы с every > 1 задаются не на каждом кадре: переносим последний ответ вперёд."""
+    for pr in probes:
+        every = int(pr.get("every", 1))
+        if every <= 1:
+            continue
+        last, age = None, 0
+        for fr in timeline:
+            if pr["id"] in fr["a"]:
+                last, age = fr["a"][pr["id"]], 0
+            elif last is not None and age < every - 1 and rule_engine.matches(fr["a"], pr.get("when", {})):
+                fr["a"][pr["id"]] = last
+                age += 1
+
+
 # ----------------------------------------------------------------- rules ---
 
-def load_rules(path: Path | None = None) -> list[dict]:
-    path = path or config.RULES_PATH
-    data = json.loads(Path(path).read_text(encoding="utf-8"))
-    return [r for r in data.get("rules", []) if r.get("enabled")]
+def load_rules(path: Path | None = None) -> dict:
+    data = json.loads(Path(path or config.RULES_PATH).read_text(encoding="utf-8"))
+    data["rules"] = [r for r in data.get("rules", []) if r.get("enabled")]
+    return data
 
 
 def _rule_text(rule: dict) -> str:
@@ -102,69 +227,17 @@ def _rule_text(rule: dict) -> str:
     return "Норматив уточняется, результат требует проверки человеком."
 
 
-def _describe(rule: dict, t: float, visible: str) -> str:
+def describe(rule: dict, t: float) -> str:
     parts = [f"{rule['observation']} (с {t:.1f} с)."]
-    if visible:
-        parts.append(f"На кадре: {visible.rstrip('.')}.")
     if rule.get("why"):
         parts.append(rule["why"])
     parts.append(_rule_text(rule))
     return " ".join(parts)
 
 
-# ------------------------------------------------------------- detection ---
-
-def _runs(hits: list[tuple[float, bool, str]], min_len: int, step: float) -> list[tuple[float, float, str]]:
-    """Серии подряд идущих «yes»: (t_начала, t_конца, подпись_модели)."""
-    runs, cur = [], []
-    for t, ok, visible in hits:
-        if ok:
-            cur.append((t, visible))
-        else:
-            if len(cur) >= min_len:
-                runs.append((cur[0][0], cur[-1][0], cur[0][1]))
-            cur = []
-    if len(cur) >= min_len:
-        runs.append((cur[0][0], cur[-1][0], cur[0][1]))
-    merged: list[tuple[float, float, str]] = []
-    for r in runs:
-        if merged and r[0] - merged[-1][1] <= config.MERGE_GAP_SEC:
-            merged[-1] = (merged[-1][0], r[1], merged[-1][2])
-        else:
-            merged.append(r)
-    return merged
-
-
-def detect_by_rules(frames: list[Frame], rules: list[dict], deadline: float,
-                    progress: ProgressFn) -> list[Event]:
-    events: list[Event] = []
-    calls_left = config.MAX_VLM_CALLS
-    step = 1.0 / config.FRAME_FPS
-    # если кадров больше бюджета вызовов, берём каждый n-й
-    per_rule_budget = max(calls_left // max(len(rules), 1), 1)
-    stride = max(1, -(-len(frames) // per_rule_budget))
-    sampled = frames[::stride]
-    total = max(len(rules) * len(sampled), 1)
-    done = 0
-    for rule in rules:
-        hits: list[tuple[float, bool, str]] = []
-        for fr in sampled:
-            if time.monotonic() > deadline:
-                break
-            res = vlm.ask(fr.path, rule["question"])
-            hits.append((fr.t, res["answer"] == "yes", res["what_is_visible"]))
-            done += 1
-            progress("Анализ кадров", 0.2 + 0.6 * done / total)
-        for start, end, visible in _runs(hits, int(rule.get("min_consecutive", 2)), step * stride)[
-                : config.MAX_EVENTS_PER_RULE]:
-            times = sorted({round(start, 2), round((start + end) / 2, 2), round(end, 2)})
-            events.append(Event(rule["type"], start, _describe(rule, start, visible), times, rule))
-    return events
-
-
 # ---------------------------------------------------------------- result ---
 
-def build_result(job_id: str, video: Path, events: list[Event]) -> dict:
+def build_result(job_id: str, video: Path, events: list[rule_engine.Event]) -> dict:
     violations = []
     for ev in sorted(events, key=lambda e: e.t):
         frames = []
@@ -172,12 +245,12 @@ def build_result(job_id: str, video: Path, events: list[Event]) -> dict:
             jpeg = grab_frame_jpeg(video, t, config.EVIDENCE_MAX_SIDE)
             frames.append({"timestamp_sec": round(t, 1), "image_base64": base64.b64encode(jpeg).decode()})
         v = {
-            "type": ev.type,
+            "type": ev.rule["type"],
             "timecode_sec": round(ev.t, 1),
-            "description": ev.description,
+            "description": describe(ev.rule, ev.t),
             "evidence_frames": frames,
         }
-        src = (ev.rule or {}).get("source") or {}
+        src = ev.rule.get("source") or {}
         if src.get("verified") and src.get("document"):
             v["rule"] = {"document": src["document"], "section": src.get("section"), "url": src.get("url")}
         violations.append(v)
@@ -189,29 +262,52 @@ def build_result(job_id: str, video: Path, events: list[Event]) -> dict:
     }
 
 
-def analyze_video(job_id: str, video: Path, progress: ProgressFn | None = None) -> dict:
+def analyze_video(job_id: str, video: Path, progress: ProgressFn | None = None,
+                  rules_path: Path | None = None) -> dict:
     progress = progress or (lambda stage, frac: None)
     deadline = time.monotonic() + config.TIME_BUDGET_SEC
     progress("Чтение видео", 0.02)
     duration = probe_duration(video)
+    cfg = load_rules(rules_path)
+    cache = AnswerCache(config.CACHE_DIR)
 
     with tempfile.TemporaryDirectory(prefix="frames_") as tmp:
         progress("Нарезка кадров", 0.05)
-        frames = extract_frames(video, Path(tmp), config.FRAME_FPS, config.FRAME_MAX_SIDE)
+        frames = extract_frames(video, Path(tmp), sample_step(duration))
         if not frames:
             raise VideoError("В видео не найдено кадров")
 
-        rules = load_rules()
-        events: list[Event] = []
-        if rules:
-            events = detect_by_rules(frames, rules, deadline, progress)
-        elif config.STUB_DEMO:
+        timeline: list[dict] = []
+        zones: dict = {}
+        if cfg["rules"] and config.VLM_BACKEND != "stub":
+            progress("Поиск рабочей зоны", 0.08)
+            zones = find_zones(frames, cfg.get("zone", {"labels": []}))
+            done, lock = [0], threading.Lock()
+
+            def work(i_fr):
+                i, fr = i_fr
+                if time.monotonic() > deadline:
+                    return None  # бюджет времени исчерпан: отдаём то, что успели
+                row = probe_frame(fr, i, cfg["probes"], zones, cache)
+                with lock:
+                    done[0] += 1
+                    progress("Анализ кадров", 0.1 + 0.75 * done[0] / len(frames))
+                return row
+
+            with ThreadPoolExecutor(max(1, config.VLM_PARALLEL)) as ex:
+                timeline = [r for r in ex.map(work, enumerate(frames)) if r is not None]
+            fill_sparse(timeline, cfg["probes"])
+
+        events = rule_engine.evaluate(timeline, cfg["rules"], config.MERGE_GAP_SEC, config.MAX_EVENTS_PER_RULE)
+        if config.VLM_BACKEND == "stub" and config.STUB_DEMO:
             t = round(duration / 2, 1)
-            events = [Event(
-                "ДЕМО: заглушка (модель не подключена)", t,
-                "Это тестовое событие для проверки интерфейса. Реальный анализ не выполнялся.",
-                [t],
-            )]
+            demo = {"type": "ДЕМО: заглушка (модель не подключена)",
+                    "observation": "Это тестовое событие для проверки интерфейса. Реальный анализ не выполнялся"}
+            events = [rule_engine.Event(demo, t, [t])]
 
         progress("Сборка результата", 0.9)
-        return build_result(job_id, video, events)
+        result = build_result(job_id, video, events)
+        # служебное, в API не отдаётся (main._job_view фильтрует поля): для отладки и подбора правил
+        result["_debug"] = {"duration": duration, "frames_total": len(frames), "frames_analyzed": len(timeline),
+                            "zones": zones, "timeline": timeline}
+        return result
