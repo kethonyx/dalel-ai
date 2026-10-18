@@ -140,12 +140,37 @@ def eval_after_session(frames: list[dict], rule: dict) -> list[Event]:
     return events
 
 
+def eval_signal(signal: dict | None, rule: dict) -> list[Event]:
+    """Ряд от детектора без модели (app/door.py): d >= threshold не меньше min_sec подряд.
+
+    Кадры со сменой общей яркости больше чем на треть (выключили свет) прерывают отрезок.
+    Камера с рук (сдвиг кадра > max_shift_px) — правило не применяется: всё изображение меняется.
+    """
+    if not signal or not signal.get("rows") or signal.get("max_shift", 0) > rule.get("max_shift_px", 4):
+        return []
+    lo, hi = rule.get("light_range", [0.75, 1.33])
+    thr, need = rule.get("threshold", 0.1), rule.get("min_sec", 8)
+    rows, out, cur = signal["rows"], [], []
+    step = rows[1]["t"] - rows[0]["t"] if len(rows) > 1 else 0.5
+    for r in rows + [None]:
+        if r is not None and lo < r["light"] < hi and r["d"] >= thr:
+            cur.append(r)
+            continue
+        if cur and cur[-1]["t"] - cur[0]["t"] + step >= need:
+            t0, t1 = cur[0]["t"], cur[-1]["t"]
+            out.append(Event(rule, t0, [t0, round(min(t1, t0 + need), 2), t1]))
+        cur = []
+    return out
+
+
 def evaluate(frames: list[dict], rules: list[dict], merge_gap: float = 3.0,
-             max_per_rule: int = 3) -> list[Event]:
+             max_per_rule: int = 3, signals: dict | None = None) -> list[Event]:
     events: list[Event] = []
     for rule in rules:
         kind = rule.get("kind", "state")
-        if kind == "state":
+        if kind == "signal":
+            found = eval_signal((signals or {}).get(rule["signal"]), rule)
+        elif kind == "state":
             found = eval_state(frames, rule, merge_gap)
         elif kind == "missing_before":
             found = eval_missing_before(frames, rule)
