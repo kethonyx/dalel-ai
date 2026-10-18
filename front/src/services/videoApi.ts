@@ -46,7 +46,15 @@ export type StoredInvestigation = {
   workerId?: string | null
 }
 
-export type Worker = { id: string; name: string; createdAt: string; videoCount: number }
+export type Worker = {
+  id: string
+  name: string
+  createdAt: string
+  videoCount: number
+  analyzedVideoCount: number
+  analyzedDurationSeconds: number
+  violationCount: number
+}
 export type WorkerVideo = {
   videoId: string
   workerId: string
@@ -193,8 +201,8 @@ async function apiRequest<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export async function listWorkers(): Promise<Worker[]> {
-  const result = await apiRequest<{ items: Array<{ worker_id: string; name: string; created_at: string; video_count: number }> }>('/workers?limit=100&offset=0')
-  return result.items.map((worker) => ({ id: worker.worker_id, name: worker.name, createdAt: worker.created_at, videoCount: worker.video_count }))
+  const result = await apiRequest<{ items: Array<{ worker_id: string; name: string; created_at: string; video_count: number; analyzed_video_count?: number; analyzed_duration_sec?: number; violation_count?: number }> }>('/workers?limit=100&offset=0')
+  return result.items.map((worker) => ({ id: worker.worker_id, name: worker.name, createdAt: worker.created_at, videoCount: worker.video_count, analyzedVideoCount: worker.analyzed_video_count ?? 0, analyzedDurationSeconds: worker.analyzed_duration_sec ?? 0, violationCount: worker.violation_count ?? 0 }))
 }
 
 export async function createWorker(name: string): Promise<Worker> {
@@ -202,7 +210,7 @@ export async function createWorker(name: string): Promise<Worker> {
     method: 'POST',
     body: JSON.stringify({ name }),
   })
-  return { id: worker.worker_id, name: worker.name, createdAt: worker.created_at, videoCount: 0 }
+  return { id: worker.worker_id, name: worker.name, createdAt: worker.created_at, videoCount: 0, analyzedVideoCount: 0, analyzedDurationSeconds: 0, violationCount: 0 }
 }
 
 export async function assignVideoWorker(videoId: string, workerId: string | null): Promise<void> {

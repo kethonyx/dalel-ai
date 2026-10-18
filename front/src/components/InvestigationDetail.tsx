@@ -48,6 +48,7 @@ export function InvestigationDetail({ item, workers, onAssignWorker, onClose }: 
     const saved = saveReview()
     if (!saved) return
     window.dispatchEvent(new CustomEvent('forte-review-saved', { detail: { jobId: item.jobId } }))
+    onClose()
   }
 
   async function handleAssignWorker(workerId: string) {

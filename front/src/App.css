@@ -498,6 +498,9 @@
 .employee-card-name { overflow: hidden; margin-top: 15px; color: #e4e7e7; font-size: 13px; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
 .employee-card-meta { display: flex; align-items: center; gap: 6px; margin-top: 5px; color: #7a8188; font-size: 9px; }
 .employee-card-meta svg { color: #6f8980; }
+.employee-score { display: inline-flex; width: fit-content; align-items: center; gap: 5px; margin-top: 10px; padding: 4px 7px; border: 1px solid rgba(65,191,146,.14); border-radius: 4px; background: rgba(22,155,114,.045); color: #8caa9d; font-size: 8px; }
+.employee-score svg { color: #70b491; }
+.employee-score strong { color: #b7d9c6; font-size: 9px; font-weight: 550; font-variant-numeric: tabular-nums; }
 .employee-card-divider { height: 1px; margin: 15px 0 11px; background: rgba(255,255,255,.055); }
 .employee-card-footer { display: flex; align-items: center; justify-content: space-between; color: #858c91; font-size: 9px; }
 .employee-card-footer > span { display: flex; align-items: center; gap: 6px; }
@@ -521,6 +524,9 @@
 .index-preview-copy { position: relative; z-index: 1; }
 .index-preview-copy h2 { margin: 3px 0 2px; color: #cbd2dc; font-size: 11px; font-weight: 500; }
 .index-preview-copy p { margin: 0; color: #7b838e; font-size: 9px; }
+.index-preview-copy p { max-width: 640px; line-height: 1.55; }
+.index-preview-score { display: flex; align-items: baseline; margin-left: auto; color: #a9d7bf; font-size: 25px; font-weight: 500; font-variant-numeric: tabular-nums; }
+.index-preview-score small { margin-left: 3px; color: #758b81; font-size: 9px; }
 .index-preview-visual { display: flex; height: 42px; align-items: end; gap: 4px; margin-left: auto; opacity: .45; }
 .index-preview-visual i { width: 5px; height: 38%; border-radius: 3px 3px 0 0; background: linear-gradient(#7ca6dc,rgba(124,166,220,.12)); }
 .index-preview-visual i:nth-child(2) { height: 63%; }

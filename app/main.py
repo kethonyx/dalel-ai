@@ -268,12 +268,14 @@ def _video_view(video: dict) -> dict:
 def _worker_stats_view(worker: dict) -> dict:
     analyzed = worker["analyzed_video_count"]
     violations = worker["violation_count"]
+    duration = worker["analyzed_duration_sec"]
     return {"worker_id": str(worker["id"]), "name": worker["name"],
             "created_at": worker["created_at"].isoformat(),
             "video_count": worker["video_count"],
             "analyzed_video_count": analyzed,
             "violation_count": violations,
-            "rating": round(100 * analyzed / (analyzed + violations), 1) if analyzed else None}
+            "analyzed_duration_sec": duration,
+            "rating": round(max(0, min(100, 100 - violations * 600 / duration))) if duration > 0 else None}
 
 
 def _selected_run(video_id: UUID, run_id: UUID | None) -> dict | None:

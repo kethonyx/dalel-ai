@@ -15,6 +15,7 @@ from . import config
 _WORKER_STATS_SQL = """SELECT w.id, w.name, w.created_at,
     COUNT(v.id)::int AS video_count,
     COUNT(r.id)::int AS analyzed_video_count,
+    COALESCE(SUM(v.duration_sec) FILTER (WHERE r.id IS NOT NULL), 0)::float8 AS analyzed_duration_sec,
     COALESCE(SUM(e.violation_count), 0)::int AS violation_count
     FROM worker w
     LEFT JOIN videos v ON v.worker_id = w.id

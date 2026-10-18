@@ -16,6 +16,16 @@ function sizeLabel(bytes: number) {
   return bytes >= 1024 ** 2 ? `${(bytes / 1024 ** 2).toFixed(1)} MB` : `${Math.round(bytes / 1024)} KB`
 }
 
+function performanceIndex(durationSeconds: number, violations: number) {
+  if (durationSeconds <= 0) return null
+  return Math.max(0, Math.min(100, Math.round(100 - violations * 600 / durationSeconds)))
+}
+
+function durationLabel(seconds: number) {
+  const minutes = Math.round(seconds / 60)
+  return minutes >= 60 ? `${(minutes / 60).toFixed(1)} h` : `${minutes} min`
+}
+
 type Props = {
   workers: Worker[]
   loading: boolean
@@ -52,6 +62,9 @@ export function EmployeesView({ workers, loading, error, onRefresh, onCreated, o
 
   const visibleWorkers = workers.filter((worker) => worker.name.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()))
   const totalVideos = workers.reduce((sum, worker) => sum + worker.videoCount, 0)
+  const teamDuration = workers.reduce((sum, worker) => sum + worker.analyzedDurationSeconds, 0)
+  const teamViolations = workers.reduce((sum, worker) => sum + worker.violationCount, 0)
+  const teamIndex = performanceIndex(teamDuration, teamViolations)
 
   async function saveWorker(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -91,6 +104,8 @@ export function EmployeesView({ workers, loading, error, onRefresh, onCreated, o
         <i />
         <div className="employees-overview-icon video"><Video size={16} /></div>
         <div><span>Linked recordings</span><strong>{totalVideos.toString().padStart(2, '0')}</strong></div>
+        <i />
+        <div><span>Team index</span><strong>{teamIndex === null ? '—' : `${teamIndex}/100`}</strong></div>
         <div className="employees-overview-spacer" />
         <button className="icon-button employees-refresh" type="button" onClick={onRefresh} aria-label="Refresh employees" title="Refresh"><LoaderCircle size={15} className={loading ? 'is-spinning' : ''} /></button>
       </div>
@@ -128,6 +143,7 @@ export function EmployeesView({ workers, loading, error, onRefresh, onCreated, o
               <span className="employee-card-top"><span className="employee-avatar">{initials(worker.name)}</span><span className="employee-card-open"><ArrowUpRight size={15} /></span></span>
               <span className="employee-card-name">{worker.name}</span>
               <span className="employee-card-meta"><CalendarDays size={12} /> Added {dateLabel(worker.createdAt)}</span>
+              <span className="employee-score"><ShieldCheck size={12} /> Index <strong>{performanceIndex(worker.analyzedDurationSeconds, worker.violationCount) === null ? '—' : `${performanceIndex(worker.analyzedDurationSeconds, worker.violationCount)}/100`}</strong></span>
               <span className="employee-card-divider" />
               <span className="employee-card-footer"><span><Video size={13} /> Recordings</span><strong>{worker.videoCount.toString().padStart(2, '0')}</strong></span>
             </motion.button>
@@ -137,8 +153,8 @@ export function EmployeesView({ workers, loading, error, onRefresh, onCreated, o
 
       <section className="employee-index-preview" aria-label="Performance index">
         <div className="index-preview-mark"><ShieldCheck size={16} /></div>
-        <div className="index-preview-copy"><span className="micro-label">COMING LATER</span><h2>Performance index</h2><p>Worker insights and performance trends will appear here.</p></div>
-        <div className="index-preview-visual" aria-hidden="true"><i /><i /><i /><span /></div>
+        <div className="index-preview-copy"><span className="micro-label">TEAM PERFORMANCE</span><h2>{teamIndex === null ? 'Index is being calculated' : `Team index · ${teamIndex}/100`}</h2><p>{teamDuration > 0 ? `${durationLabel(teamDuration)} analyzed · ${teamViolations} detected violations` : 'Complete an assigned video analysis to calculate the index.'} · Each violation reduces the score by 1 point per 10 minutes analyzed.</p></div>
+        <div className="index-preview-score">{teamIndex === null ? '—' : teamIndex}<small>/100</small></div>
       </section>
 
       <AnimatePresence>
@@ -172,7 +188,7 @@ export function EmployeesView({ workers, loading, error, onRefresh, onCreated, o
                     <div className="worker-video-list">{workerVideos.map((video) => <button className="worker-video-row" key={video.videoId} type="button" onClick={() => { setSelectedWorker(null); onOpenVideo(video) }}><span className="worker-video-icon"><FileVideo2 size={15} /></span><span className="worker-video-copy"><strong>{video.fileName}</strong><small>{sizeLabel(video.size)} · {dateLabel(video.createdAt)}</small></span><span className={`worker-video-status ${video.status ?? 'processing'}`}><i />{video.status === 'done' ? 'Complete' : video.status === 'failed' ? 'Failed' : 'Processing'}</span><ArrowUpRight className="worker-video-arrow" size={14} /></button>)}</div>
                   )}
                 </section>
-                <section className="worker-index-card"><span className="worker-index-icon"><ShieldCheck size={17} /></span><div><span className="micro-label">COMING LATER</span><h3>Performance index</h3><p>Individual ratings and insights will appear here.</p></div><div className="worker-index-lines" aria-hidden="true"><i /><i /><i /></div></section>
+                <section className="worker-index-card"><span className="worker-index-icon"><ShieldCheck size={17} /></span><div><span className="micro-label">PERFORMANCE INDEX</span><h3>{performanceIndex(selectedWorker.analyzedDurationSeconds, selectedWorker.violationCount) === null ? 'Not enough data yet' : `${performanceIndex(selectedWorker.analyzedDurationSeconds, selectedWorker.violationCount)} / 100`}</h3><p>{selectedWorker.analyzedVideoCount} analyzed recordings · {durationLabel(selectedWorker.analyzedDurationSeconds)} analyzed · {selectedWorker.violationCount} detected violations. Each violation reduces the score by 1 point per 10 minutes analyzed.</p></div><div className="worker-index-lines" aria-hidden="true"><i /><i /><i /></div></section>
               </div>
             </motion.section>
           </motion.div>
