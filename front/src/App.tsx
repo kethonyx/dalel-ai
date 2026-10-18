@@ -312,7 +312,7 @@ function InvestigationGrid({
                   <span className="investigation-case-title">{caseTitle(item.fileName)}</span>
                   <span className="investigation-file-name" title={item.fileName}>{item.fileName}</span>
                   {item.status === 'done' && <span className={`verdict-pill card-verdict ${violation ? 'violation' : 'clean'}`}><i />{violation ? `Violation detected · ${item.violationCount || item.violations.length} ${item.violationCount === 1 || item.violations.length === 1 ? 'event' : 'events'}` : 'No violation'}</span>}
-                  <span className="case-card-badges"><span className="employee-chip"><UserRound size={12} />{employee?.name ?? 'Unassigned'}</span><span className={`review-pill ${reviewStatus}`}>{reviewStatus === 'confirmed' ? 'Confirmed' : reviewStatus === 'dismissed' ? 'Dismissed' : 'Pending review'}</span></span>
+                  <span className="case-card-badges"><span className={`employee-chip${employee ? '' : ' unassigned'}`}><UserRound size={12} />{employee?.name ?? 'Unassigned'}</span><span className={`review-pill ${reviewStatus}`}>{reviewStatus === 'confirmed' ? 'Confirmed' : reviewStatus === 'dismissed' ? 'Dismissed' : 'Pending review'}</span></span>
                   <span className="investigation-meta"><span>{formatFileSize(item.size)}</span><i />{formatDate(item.createdAt)}</span>
                   {item.status === 'processing' && <span className="case-processing-track"><i style={{ width: `${Math.round(item.progress * 100)}%` }} /></span>}
                   {item.status === 'failed' && <span className="investigation-stage failed-stage" title={item.error ?? undefined}>{item.error || 'Analysis failed'}</span>}
