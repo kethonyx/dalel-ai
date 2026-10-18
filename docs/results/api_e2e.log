@@ -1,0 +1,5 @@
+{"video": "X-20", "size_mb": 2.3, "upload_s": 13.6, "total_s": 93.6, "status": "done", "verdict": "no_violation", "violations": []}
+{"video": "X-26", "size_mb": 3.8, "upload_s": 2.0, "total_s": 123.3, "status": "done", "verdict": "violation", "violations": [["Наличные оставлены без присмотра", 9.9]]}
+{"video": "X-14", "size_mb": 27.4, "upload_s": 0.9, "total_s": 174.5, "status": "done", "verdict": "violation", "violations": [["Рабочая станция не заблокирована при уходе", 0.0], ["Наличные оставлены без присмотра", 35.6], ["Рабочая станция не заблокирована при уходе", 35.6], ["Наличные открыто на рабочем месте", 44.5], ["Наличные открыто на рабочем месте", 102.5], ["Сейф оставлен открытым", 115.8]]}
+{"video": "X-30", "size_mb": 3.7, "upload_s": 0.3, "total_s": 87.3, "status": "done", "verdict": "violation", "violations": [["Дверь кассы оставлена открытой", 3.5]]}
+{"video": "X-17", "size_mb": 2.9, "upload_s": 0.4, "total_s": 92.8, "status": "done", "verdict": "violation", "violations": [["Приём инкассаторской сумки без проверки документов", 3.9]]}
