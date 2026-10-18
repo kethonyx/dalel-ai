@@ -1,0 +1,86 @@
+Х-1: no_violation 130s frames 26/26 zones={'cashier desk': 3, 'metal safe': 3, 'banknote counting machine': 3}
+Х-2: no_violation 72s frames 18/18 zones={'cashier desk': 3, 'metal safe': 3, 'banknote counting machine': 3}
+Х-3: no_violation 77s frames 21/21 zones={'cashier desk': 3, 'metal safe': 3, 'banknote counting machine': 3}
+Х-4: violation 139s frames 32/32 zones={'cashier desk': 3, 'metal safe': 3, 'banknote counting machine': 3}
+Х-5: no_violation 106s frames 32/32 zones={'cashier desk': 3, 'metal safe': 3, 'banknote counting machine': 3}
+Х-8: no_violation 90s frames 32/32 zones={'cashier desk': 3, 'banknote counting machine': 3, 'metal safe': 2}
+Х-10: violation 63s frames 16/16 zones={'cashier desk': 3, 'banknote counting machine': 3, 'metal safe': 1}
+Х-11: violation 110s frames 26/26 zones={'cashier desk': 3, 'banknote counting machine': 3, 'metal safe': 2}
+Х-12: no_violation 111s frames 32/32 zones={'cashier desk': 3, 'banknote counting machine': 3, 'metal safe': 2}
+Х-13: violation 98s frames 32/32 zones={'cashier desk': 3, 'banknote counting machine': 3}
+Х-14: violation 151s frames 32/32 zones={'cashier desk': 3, 'banknote counting machine': 3, 'metal safe': 1}
+Х-15: violation 101s frames 21/21 zones={'cashier desk': 3, 'metal safe': 3, 'banknote counting machine': 3}
+Х-16: no_violation 85s frames 23/23 zones={'cashier desk': 3, 'metal safe': 3, 'banknote counting machine': 3}
+Х-17: violation 61s frames 15/15 zones={'cashier desk': 3, 'metal safe': 3, 'banknote counting machine': 3}
+Х-18: violation 82s frames 23/23 zones={'cashier desk': 3, 'metal safe': 3, 'banknote counting machine': 3}
+Х-19: violation 104s frames 32/32 zones={'cashier desk': 3, 'metal safe': 3, 'banknote counting machine': 3}
+Х-20: no_violation 46s frames 12/12 zones={'cashier desk': 3, 'metal safe': 2, 'banknote counting machine': 3}
+Х-21: no_violation 62s frames 20/20 zones={'cashier desk': 3, 'metal safe': 3, 'banknote counting machine': 3}
+Х-22: violation 93s frames 22/22 zones={'cashier desk': 3, 'banknote counting machine': 3, 'metal safe': 2}
+Х-23: violation 85s frames 19/19 zones={'cashier desk': 3, 'metal safe': 3, 'banknote counting machine': 3}
+Х-24: no_violation 60s frames 15/15 zones={'cashier desk': 3, 'metal safe': 3, 'banknote counting machine': 3}
+Х-25: violation 124s frames 32/32 zones={'cashier desk': 3, 'banknote counting machine': 3, 'metal safe': 1}
+Х-26: violation 77s frames 20/20 zones={'cashier desk': 3, 'banknote counting machine': 3, 'metal safe': 1}
+Х-27: violation 101s frames 27/27 zones={'cashier desk': 3, 'metal safe': 3, 'banknote counting machine': 3}
+Х-28: violation 73s frames 17/17 zones={'cashier desk': 3, 'metal safe': 3, 'banknote counting machine': 3}
+Х-29: violation 82s frames 18/18 zones={'cashier desk': 3, 'metal safe': 2, 'banknote counting machine': 3}
+Х-30: violation 76s frames 19/19 zones={'cashier desk': 3, 'banknote counting machine': 3}
+Х-31: no_violation 76s frames 24/24 zones={'cashier desk': 3, 'banknote counting machine': 3}
+Х-32: violation 76s frames 22/22 zones={'cashier desk': 3, 'banknote counting machine': 3}
+Х-33: violation 73s frames 15/15 zones={'cashier desk': 3, 'metal safe': 1, 'banknote counting machine': 3}
+Х-34: no_violation 58s frames 18/18 zones={'cashier desk': 3, 'metal safe': 3, 'banknote counting machine': 3}
+Х-35: violation 119s frames 32/32 zones={'cashier desk': 3, 'metal safe': 3, 'banknote counting machine': 3}
+Х-37: no_violation 51s frames 16/16 zones={'cashier desk': 3, 'metal safe': 3, 'banknote counting machine': 3}
+Х-38: violation 111s frames 32/32 zones={'cashier desk': 3, 'metal safe': 3, 'banknote counting machine': 3}
+Х-39: no_violation 100s frames 32/32 zones={'cashier desk': 3, 'metal safe': 3, 'banknote counting machine': 3}
+Х-40: violation 101s frames 26/26 zones={'cashier desk': 3, 'metal safe': 1, 'banknote counting machine': 3}
+Х-43: violation 57s frames 24/24 zones={'cashier desk': 3, 'banknote counting machine': 3, 'metal safe': 1}
+Х-44: no_violation 48s frames 21/21 zones={'cashier desk': 3, 'metal safe': 2, 'banknote counting machine': 3}
+Х-45: violation 100s frames 32/32 zones={'cashier desk': 3, 'metal safe': 3, 'banknote counting machine': 3}
+Х-46: violation 52s frames 20/20 zones={'cashier desk': 3, 'banknote counting machine': 3}
+Х-47: violation 45s frames 32/32 zones={'cashier desk': 3, 'metal safe': 3, 'banknote counting machine': 3}
+Х-48: no_violation 27s frames 32/32 zones={'cashier desk': 3, 'metal safe': 3, 'banknote counting machine': 3}
+ERR     Х-1    label=V@22       pred=-
+ERR     Х-2    label=V@10       pred=-
+OK      Х-3    label=clean      pred=-
+OK  loc Х-4    label=V@57       pred=14s Рабочая станция не заблокирована при уходе; 43s Рабочая станция не заблокирована при уходе; 57s Наличные открыто на рабочем месте тип:✓(cash_on_desk)
+OK      Х-5    label=clean      pred=-
+OK      Х-8    label=clean      pred=-
+ERR     Х-10   label=clean      pred=0s Наличные открыто на рабочем месте
+OK      Х-11   label=V@18       pred=12s Рабочая станция не заблокирована при уходе тип:✓(screen_unlocked)
+OK      Х-12   label=clean      pred=-
+OK      Х-13   label=V@47       pred=0s Рабочая станция не заблокирована при уходе; 39s Наличные оставлены без присмотра
+ERR     Х-14   label=clean      pred=31s Наличные оставлены без присмотра; 36s Рабочая станция не заблокирована при уходе; 44s Наличные открыто на рабочем месте; 71s Наличные открыто на рабочем месте; 102s Наличные открыто на рабочем месте; 116s Сейф оставлен открытым
+OK      Х-15   label=V@15       pred=0s Личные вещи на рабочем месте кассира; 8s Рабочая станция не заблокирована при уходе тип:✗(cash_on_desk)
+OK      Х-16   label=clean      pred=-
+OK      Х-17   label=V@7        pred=4s Приём инкассаторской сумки без проверки документов; 10s Личные вещи на рабочем месте кассира тип:✓(bag_no_doc)
+OK      Х-18   label=V@20       pred=16s Посторонний в кассовом помещении тип:✓(extra_person)
+ERR     Х-19   label=clean      pred=54s Посторонний в кассовом помещении
+ERR     Х-20   label=V@5        pred=- тип:✗(safe_open)
+OK      Х-21   label=clean      pred=-
+OK      Х-22   label=V@14       pred=7s Рабочая станция не заблокирована при уходе тип:✗(key_in_safe)
+ERR     Х-23   label=clean      pred=6s Рабочая станция не заблокирована при уходе
+ERR     Х-24   label=V@8        pred=- тип:✗(items_left)
+ERR     Х-25   label=clean      pred=5s Рабочая станция не заблокирована при уходе
+OK  loc Х-26   label=V@9        pred=10s Наличные оставлены без присмотра тип:✓(cash_on_desk)
+ERR     Х-27   label=clean      pred=14s Рабочая станция не заблокирована при уходе
+OK  loc Х-28   label=V@7        pred=7s Рабочая станция не заблокирована при уходе тип:✓(screen_unlocked)
+ERR     Х-29   label=clean      pred=7s Рабочая станция не заблокирована при уходе
+OK      Х-30   label=V@13       pred=2s Дверь кассы оставлена открытой тип:✓(door_open)
+OK      Х-31   label=clean      pred=-
+OK  loc Х-32   label=V@5        pred=6s Дверь кассы оставлена открытой тип:✓(door_open)
+OK      Х-33   label=V@6        pred=4s Дверь кассы оставлена открытой тип:✓(door_open)
+ERR     Х-34   label=V@13       pred=- тип:✗(count_without_client)
+ERR     Х-35   label=clean      pred=41s Сейф оставлен открытым
+OK      Х-37   label=clean      pred=-
+OK      Х-38   label=V@33       pred=24s Наличные открыто на рабочем месте; 44s Посторонний в кассовом помещении тип:✓(cash_on_desk)
+OK      Х-39   label=clean      pred=-
+OK      Х-40   label=V@17       pred=8s Личные вещи на рабочем месте кассира тип:✓(personal_items)
+ERR     Х-43   label=clean      pred=14s Наличные открыто на рабочем месте
+ERR     Х-44   label=V@16       pred=- тип:✗(uv_not_checked)
+ERR     Х-45   label=clean      pred=9s Наличные открыто на рабочем месте; 15s Пересчёт наличных в отсутствие клиента
+OK      Х-46   label=V@11       pred=4s Наличные открыто на рабочем месте тип:✓(cash_on_desk)
+OK      Х-47   label=V@68       pred=14s Рабочая станция не заблокирована при уходе; 43s Рабочая станция не заблокирована при уходе; 57s Наличные открыто на рабочем месте тип:✗(not_machine_counted)
+OK      Х-48   label=clean      pred=-
+
+вердикт: верно 26/42  | пропуски 6  | ложные 10  | таймкод ±2с у верных нарушений: 4/16  | тип верный: 12/19

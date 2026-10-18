@@ -61,13 +61,14 @@ def main() -> None:
             variants[key][name] = {"verdict": "violation" if evs else "no_violation",
                                    "violations": [{"timecode_sec": round(e.t, 1), "type": e.rule["type"]} for e in evs]}
         extra = (tv.get(name.replace("Х", "X")) or {}).get("pred")
-        res = dict(variants["gate"][name])
-        if extra and res["verdict"] == "no_violation":
+        res = variants["gate"][name]
+        added = bool(extra) and res["verdict"] == "no_violation"
+        if added:
             res = {"verdict": "violation", "violations": [{"timecode_sec": extra[1], "type": extra[0]}]}
         variants["gate+tv"][name] = res
-        if len(kept) != len(events) or res is not variants["gate"][name]:
+        if len(kept) != len(events) or added:
             changed.append(f"{name}: main {[e.rule['id'] for e in events]} -> gate {[e.rule['id'] for e in kept]}"
-                           + (f" + трекинг {extra[0]}@{extra[1]}" if extra and res is not variants['gate'][name] else "")
+                           + (f" + трекинг {extra[0]}@{extra[1]}" if added else "")
                            + ("" if deps is not None else " (нет events.json — фильтр не применён)"))
     all_rules = json.loads((args.rules or config.RULES_PATH).read_text(encoding="utf-8"))["rules"]
     for key, results in variants.items():

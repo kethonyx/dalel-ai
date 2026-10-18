@@ -1,0 +1,808 @@
+{
+ "X-1": {
+  "label": {
+   "video": "X-1",
+   "violation": true,
+   "t": 22.0,
+   "what": ""
+  },
+  "pred": null,
+  "departures": []
+ },
+ "X-2": {
+  "label": {
+   "video": "X-2",
+   "violation": true,
+   "t": 10.0,
+   "what": ""
+  },
+  "pred": null,
+  "departures": []
+ },
+ "X-3": {
+  "label": {
+   "video": "X-3",
+   "violation": false,
+   "t": null,
+   "what": ""
+  },
+  "pred": null,
+  "departures": []
+ },
+ "X-4": {
+  "label": {
+   "video": "X-4",
+   "violation": true,
+   "t": 57.0,
+   "what": ""
+  },
+  "pred": null,
+  "departures": []
+ },
+ "X-5": {
+  "label": {
+   "video": "X-5",
+   "violation": false,
+   "t": null,
+   "what": ""
+  },
+  "pred": null,
+  "departures": []
+ },
+ "X-8": {
+  "label": {
+   "video": "X-8",
+   "violation": false,
+   "t": null,
+   "what": ""
+  },
+  "pred": null,
+  "departures": []
+ },
+ "X-10": {
+  "label": {
+   "video": "X-10",
+   "violation": false,
+   "t": null,
+   "what": ""
+  },
+  "pred": null,
+  "departures": []
+ },
+ "X-11": {
+  "label": {
+   "video": "X-11",
+   "violation": true,
+   "t": 18.0,
+   "what": ""
+  },
+  "pred": [
+   "workstation_unlocked",
+   18.4
+  ],
+  "departures": [
+   {
+    "t": 18.4,
+    "answers": {
+     "cash_unattended": [
+      "no",
+      "no"
+     ],
+     "safe_left_open": [
+      "no",
+      "no"
+     ],
+     "work_items_left": [
+      "no",
+      "no"
+     ],
+     "workstation_unlocked": [
+      "yes",
+      "yes"
+     ]
+    }
+   },
+   {
+    "t": 24.4,
+    "answers": {
+     "cash_unattended": [
+      "no"
+     ],
+     "safe_left_open": [
+      "no"
+     ],
+     "work_items_left": [
+      "no"
+     ],
+     "workstation_unlocked": [
+      "yes"
+     ]
+    }
+   }
+  ]
+ },
+ "X-12": {
+  "label": {
+   "video": "X-12",
+   "violation": false,
+   "t": null,
+   "what": ""
+  },
+  "pred": null,
+  "departures": [
+   {
+    "t": 21.0,
+    "answers": {
+     "cash_unattended": [
+      "no",
+      "no"
+     ],
+     "safe_left_open": [
+      "no",
+      "no"
+     ],
+     "work_items_left": [
+      "no",
+      "no"
+     ],
+     "workstation_unlocked": [
+      "no",
+      "no"
+     ]
+    }
+   },
+   {
+    "t": 41.2,
+    "answers": {
+     "cash_unattended": [
+      "no"
+     ],
+     "safe_left_open": [
+      "no"
+     ],
+     "work_items_left": [
+      "no"
+     ],
+     "workstation_unlocked": [
+      "no"
+     ]
+    }
+   }
+  ]
+ },
+ "X-13": {
+  "label": {
+   "video": "X-13",
+   "violation": true,
+   "t": 47.0,
+   "what": ""
+  },
+  "pred": null,
+  "departures": [
+   {
+    "t": 58.6,
+    "answers": {
+     "cash_unattended": [
+      "no",
+      "no"
+     ],
+     "safe_left_open": [
+      "no",
+      "no"
+     ],
+     "work_items_left": [
+      "no",
+      "no"
+     ],
+     "workstation_unlocked": [
+      "no",
+      "no"
+     ]
+    }
+   },
+   {
+    "t": 63.8,
+    "answers": {
+     "cash_unattended": [
+      "no"
+     ],
+     "safe_left_open": [
+      "no"
+     ],
+     "work_items_left": [
+      "no"
+     ],
+     "workstation_unlocked": [
+      "no"
+     ]
+    }
+   }
+  ]
+ },
+ "X-14": {
+  "label": {
+   "video": "X-14",
+   "violation": false,
+   "t": null,
+   "what": ""
+  },
+  "pred": null,
+  "departures": [
+   {
+    "t": 62.8,
+    "answers": {
+     "cash_unattended": [
+      "yes",
+      "no"
+     ],
+     "safe_left_open": [
+      "no",
+      "no"
+     ],
+     "work_items_left": [
+      "no",
+      "no"
+     ],
+     "workstation_unlocked": [
+      "no",
+      "no"
+     ]
+    }
+   }
+  ]
+ },
+ "X-15": {
+  "label": {
+   "video": "X-15",
+   "violation": true,
+   "t": 15.0,
+   "what": ""
+  },
+  "pred": null,
+  "departures": []
+ },
+ "X-16": {
+  "label": {
+   "video": "X-16",
+   "violation": false,
+   "t": null,
+   "what": ""
+  },
+  "pred": null,
+  "departures": []
+ },
+ "X-17": {
+  "label": {
+   "video": "X-17",
+   "violation": true,
+   "t": 7.0,
+   "what": ""
+  },
+  "pred": null,
+  "departures": []
+ },
+ "X-18": {
+  "label": {
+   "video": "X-18",
+   "violation": true,
+   "t": 20.0,
+   "what": ""
+  },
+  "pred": null,
+  "departures": []
+ },
+ "X-19": {
+  "label": {
+   "video": "X-19",
+   "violation": false,
+   "t": null,
+   "what": ""
+  },
+  "pred": null,
+  "departures": []
+ },
+ "X-20": {
+  "label": {
+   "video": "X-20",
+   "violation": true,
+   "t": 5.0,
+   "what": "При взятии денег из сейфа, сейф был оставлен открытым"
+  },
+  "pred": null,
+  "departures": []
+ },
+ "X-21": {
+  "label": {
+   "video": "X-21",
+   "violation": false,
+   "t": null,
+   "what": "При взятии денег из сейфа, сейф был закрыт на ключ"
+  },
+  "pred": null,
+  "departures": []
+ },
+ "X-22": {
+  "label": {
+   "video": "X-22",
+   "violation": true,
+   "t": 14.0,
+   "what": "Сейф был закрыт на ключ, но ключ был оставлен в замке и ушли с кабинета"
+  },
+  "pred": null,
+  "departures": [
+   {
+    "t": 19.8,
+    "answers": {
+     "cash_unattended": [
+      "no"
+     ],
+     "safe_left_open": [
+      "no"
+     ],
+     "work_items_left": [
+      "no"
+     ],
+     "workstation_unlocked": [
+      "no"
+     ]
+    }
+   }
+  ]
+ },
+ "X-23": {
+  "label": {
+   "video": "X-23",
+   "violation": false,
+   "t": null,
+   "what": "Сейф был закрыт на ключ, но ключ забрали с собой и ушли с кабинета"
+  },
+  "pred": null,
+  "departures": [
+   {
+    "t": 17.2,
+    "answers": {
+     "cash_unattended": [
+      "no"
+     ],
+     "safe_left_open": [
+      "no"
+     ],
+     "work_items_left": [
+      "no"
+     ],
+     "workstation_unlocked": [
+      "no"
+     ]
+    }
+   }
+  ]
+ },
+ "X-24": {
+  "label": {
+   "video": "X-24",
+   "violation": true,
+   "t": 8.0,
+   "what": "Рабочие вещи были оставлены на столе"
+  },
+  "pred": [
+   "work_items_left",
+   13.4
+  ],
+  "departures": [
+   {
+    "t": 13.4,
+    "answers": {
+     "cash_unattended": [
+      "no"
+     ],
+     "safe_left_open": [
+      "no"
+     ],
+     "work_items_left": [
+      "yes"
+     ],
+     "workstation_unlocked": [
+      "no"
+     ]
+    }
+   }
+  ]
+ },
+ "X-25": {
+  "label": {
+   "video": "X-25",
+   "violation": false,
+   "t": null,
+   "what": "Рабочие вещи положили в сейф"
+  },
+  "pred": null,
+  "departures": [
+   {
+    "t": 30.4,
+    "answers": {
+     "cash_unattended": [
+      "no"
+     ],
+     "safe_left_open": [
+      "no"
+     ],
+     "work_items_left": [
+      "no"
+     ],
+     "workstation_unlocked": [
+      "no"
+     ]
+    }
+   }
+  ]
+ },
+ "X-26": {
+  "label": {
+   "video": "X-26",
+   "violation": true,
+   "t": 9.0,
+   "what": "Оставила деньги на рабочем столе и ушла"
+  },
+  "pred": [
+   "cash_unattended",
+   18.0
+  ],
+  "departures": [
+   {
+    "t": 18.0,
+    "answers": {
+     "cash_unattended": [
+      "yes"
+     ],
+     "safe_left_open": [
+      "no"
+     ],
+     "work_items_left": [
+      "no"
+     ],
+     "workstation_unlocked": [
+      "no"
+     ]
+    }
+   }
+  ]
+ },
+ "X-27": {
+  "label": {
+   "video": "X-27",
+   "violation": false,
+   "t": null,
+   "what": "Деньги положили в сейф"
+  },
+  "pred": null,
+  "departures": [
+   {
+    "t": 25.2,
+    "answers": {
+     "cash_unattended": [
+      "no"
+     ],
+     "safe_left_open": [
+      "no"
+     ],
+     "work_items_left": [
+      "no"
+     ],
+     "workstation_unlocked": [
+      "no"
+     ]
+    }
+   }
+  ]
+ },
+ "X-28": {
+  "label": {
+   "video": "X-28",
+   "violation": true,
+   "t": 7.0,
+   "what": "Ноутбук был оставлен открытым(не заблокирован)"
+  },
+  "pred": [
+   "workstation_unlocked",
+   10.2
+  ],
+  "departures": [
+   {
+    "t": 10.2,
+    "answers": {
+     "cash_unattended": [
+      "no",
+      "no"
+     ],
+     "safe_left_open": [
+      "no",
+      "no"
+     ],
+     "work_items_left": [
+      "no",
+      "no"
+     ],
+     "workstation_unlocked": [
+      "yes",
+      "yes"
+     ]
+    }
+   }
+  ]
+ },
+ "X-29": {
+  "label": {
+   "video": "X-29",
+   "violation": false,
+   "t": null,
+   "what": "Ноутбук был закрыт перед уходом (заблокировали)"
+  },
+  "pred": null,
+  "departures": [
+   {
+    "t": 10.2,
+    "answers": {
+     "cash_unattended": [
+      "no",
+      "no"
+     ],
+     "safe_left_open": [
+      "no",
+      "no"
+     ],
+     "work_items_left": [
+      "no",
+      "no"
+     ],
+     "workstation_unlocked": [
+      "no",
+      "no"
+     ]
+    }
+   },
+   {
+    "t": 16.0,
+    "answers": {
+     "cash_unattended": [
+      "no"
+     ],
+     "safe_left_open": [
+      "no"
+     ],
+     "work_items_left": [
+      "no"
+     ],
+     "workstation_unlocked": [
+      "no"
+     ]
+    }
+   }
+  ]
+ },
+ "X-30": {
+  "label": {
+   "video": "X-30",
+   "violation": true,
+   "t": 13.0,
+   "what": "Дверь рабочего места не была закрыта, посторонний человек зашел"
+  },
+  "pred": null,
+  "departures": []
+ },
+ "X-31": {
+  "label": {
+   "video": "X-31",
+   "violation": false,
+   "t": null,
+   "what": "Дверь была закрыта, посторонние не зашли"
+  },
+  "pred": null,
+  "departures": [
+   {
+    "t": 6.4,
+    "answers": {
+     "cash_unattended": [
+      "no",
+      "no"
+     ],
+     "safe_left_open": [
+      "no",
+      "no"
+     ],
+     "work_items_left": [
+      "no",
+      "no"
+     ],
+     "workstation_unlocked": [
+      "no",
+      "no"
+     ]
+    }
+   }
+  ]
+ },
+ "X-32": {
+  "label": {
+   "video": "X-32",
+   "violation": true,
+   "t": 5.0,
+   "what": "Дверь рабочего места не была закрыта"
+  },
+  "pred": null,
+  "departures": [
+   {
+    "t": 4.2,
+    "answers": {
+     "cash_unattended": [
+      "no",
+      "no"
+     ],
+     "safe_left_open": [
+      "no",
+      "no"
+     ],
+     "work_items_left": [
+      "no",
+      "no"
+     ],
+     "workstation_unlocked": [
+      "no",
+      "no"
+     ]
+    }
+   }
+  ]
+ },
+ "X-33": {
+  "label": {
+   "video": "X-33",
+   "violation": true,
+   "t": 6.0,
+   "what": "Дверь рабочего места не была закрыта"
+  },
+  "pred": null,
+  "departures": []
+ },
+ "X-34": {
+  "label": {
+   "video": "X-34",
+   "violation": true,
+   "t": 13.0,
+   "what": "Пока делает пересчет, клиент ушел"
+  },
+  "pred": null,
+  "departures": []
+ },
+ "X-35": {
+  "label": {
+   "video": "X-35",
+   "violation": false,
+   "t": null,
+   "what": ""
+  },
+  "pred": null,
+  "departures": []
+ },
+ "X-37": {
+  "label": {
+   "video": "X-37",
+   "violation": false,
+   "t": null,
+   "what": ""
+  },
+  "pred": null,
+  "departures": []
+ },
+ "X-38": {
+  "label": {
+   "video": "X-38",
+   "violation": true,
+   "t": 33.0,
+   "what": "Пришло несколько клиентов, после первого клиента оставила на столе деньги"
+  },
+  "pred": null,
+  "departures": []
+ },
+ "X-39": {
+  "label": {
+   "video": "X-39",
+   "violation": false,
+   "t": null,
+   "what": "В отличии от x-38, деньги положили в сейф, а не лежат на рабочем столе"
+  },
+  "pred": null,
+  "departures": []
+ },
+ "X-40": {
+  "label": {
+   "video": "X-40",
+   "violation": true,
+   "t": 17.0,
+   "what": "Личные вещи, как сумка оставлены на рабочем столе"
+  },
+  "pred": null,
+  "departures": [
+   {
+    "t": 4.0,
+    "answers": {
+     "cash_unattended": [
+      "no",
+      "no"
+     ],
+     "safe_left_open": [
+      "no",
+      "no"
+     ],
+     "work_items_left": [
+      "no",
+      "no"
+     ],
+     "workstation_unlocked": [
+      "no",
+      "no"
+     ]
+    }
+   }
+  ]
+ },
+ "X-43": {
+  "label": {
+   "video": "X-43",
+   "violation": false,
+   "t": null,
+   "what": ""
+  },
+  "pred": null,
+  "departures": []
+ },
+ "X-44": {
+  "label": {
+   "video": "X-44",
+   "violation": true,
+   "t": 16.0,
+   "what": "Деньги не были проверены через ультрафиолет"
+  },
+  "pred": null,
+  "departures": []
+ },
+ "X-45": {
+  "label": {
+   "video": "X-45",
+   "violation": false,
+   "t": null,
+   "what": ""
+  },
+  "pred": null,
+  "departures": []
+ },
+ "X-46": {
+  "label": {
+   "video": "X-46",
+   "violation": true,
+   "t": 11.0,
+   "what": "Деньги были оставлены на столе и потом занимается своими делами (пьет кофе)"
+  },
+  "pred": null,
+  "departures": []
+ },
+ "X-47": {
+  "label": {
+   "video": "X-47",
+   "violation": true,
+   "t": 68.0,
+   "what": "Деньги не были посчитаны на тайминге 68 а до этого деньги предыдущего клиента остались на столе "
+  },
+  "pred": null,
+  "departures": []
+ },
+ "X-48": {
+  "label": {
+   "video": "X-48",
+   "violation": false,
+   "t": null,
+   "what": ""
+  },
+  "pred": null,
+  "departures": []
+ }
+}

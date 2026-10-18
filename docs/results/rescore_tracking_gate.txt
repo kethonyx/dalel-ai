@@ -1,0 +1,151 @@
+
+===== main =====
+ERR     Х-1    label=V@22       pred=-
+ERR     Х-2    label=V@10       pred=-
+OK      Х-3    label=clean      pred=-
+OK  loc Х-4    label=V@57       pred=14s Рабочая станция не заблокирована при уходе; 43s Рабочая станция не заблокирована при уходе; 57s Наличные открыто на рабочем месте тип:✓(cash_on_desk)
+OK      Х-5    label=clean      pred=-
+OK      Х-8    label=clean      pred=-
+ERR     Х-10   label=clean      pred=0s Наличные открыто на рабочем месте
+OK      Х-11   label=V@18       pred=12s Рабочая станция не заблокирована при уходе тип:✓(screen_unlocked)
+OK      Х-12   label=clean      pred=-
+OK      Х-13   label=V@47       pred=0s Рабочая станция не заблокирована при уходе; 39s Наличные оставлены без присмотра
+ERR     Х-14   label=clean      pred=31s Наличные оставлены без присмотра; 36s Рабочая станция не заблокирована при уходе; 44s Наличные открыто на рабочем месте; 71s Наличные открыто на рабочем месте; 102s Наличные открыто на рабочем месте; 116s Сейф оставлен открытым
+OK      Х-15   label=V@15       pred=0s Личные вещи на рабочем месте кассира; 8s Рабочая станция не заблокирована при уходе тип:✗(cash_on_desk)
+OK      Х-16   label=clean      pred=-
+OK      Х-17   label=V@7        pred=4s Приём инкассаторской сумки без проверки документов; 10s Личные вещи на рабочем месте кассира тип:✓(bag_no_doc)
+OK      Х-18   label=V@20       pred=16s Посторонний в кассовом помещении тип:✓(extra_person)
+ERR     Х-19   label=clean      pred=54s Посторонний в кассовом помещении
+ERR     Х-20   label=V@5        pred=- тип:✗(safe_open)
+OK      Х-21   label=clean      pred=-
+OK      Х-22   label=V@14       pred=7s Рабочая станция не заблокирована при уходе тип:✗(key_in_safe)
+ERR     Х-23   label=clean      pred=6s Рабочая станция не заблокирована при уходе
+ERR     Х-24   label=V@8        pred=- тип:✗(items_left)
+ERR     Х-25   label=clean      pred=5s Рабочая станция не заблокирована при уходе
+OK  loc Х-26   label=V@9        pred=10s Наличные оставлены без присмотра тип:✓(cash_on_desk)
+ERR     Х-27   label=clean      pred=14s Рабочая станция не заблокирована при уходе
+OK  loc Х-28   label=V@7        pred=7s Рабочая станция не заблокирована при уходе тип:✓(screen_unlocked)
+ERR     Х-29   label=clean      pred=7s Рабочая станция не заблокирована при уходе
+OK      Х-30   label=V@13       pred=2s Дверь кассы оставлена открытой тип:✓(door_open)
+OK      Х-31   label=clean      pred=-
+OK  loc Х-32   label=V@5        pred=6s Дверь кассы оставлена открытой тип:✓(door_open)
+OK      Х-33   label=V@6        pred=4s Дверь кассы оставлена открытой тип:✓(door_open)
+ERR     Х-34   label=V@13       pred=- тип:✗(count_without_client)
+ERR     Х-35   label=clean      pred=41s Сейф оставлен открытым
+OK      Х-37   label=clean      pred=-
+OK      Х-38   label=V@33       pred=24s Наличные открыто на рабочем месте; 44s Посторонний в кассовом помещении тип:✓(cash_on_desk)
+OK      Х-39   label=clean      pred=-
+OK      Х-40   label=V@17       pred=8s Личные вещи на рабочем месте кассира тип:✓(personal_items)
+ERR     Х-43   label=clean      pred=14s Наличные открыто на рабочем месте
+ERR     Х-44   label=V@16       pred=- тип:✗(uv_not_checked)
+ERR     Х-45   label=clean      pred=9s Наличные открыто на рабочем месте; 15s Пересчёт наличных в отсутствие клиента
+OK      Х-46   label=V@11       pred=4s Наличные открыто на рабочем месте тип:✓(cash_on_desk)
+OK      Х-47   label=V@68       pred=14s Рабочая станция не заблокирована при уходе; 43s Рабочая станция не заблокирована при уходе; 57s Наличные открыто на рабочем месте тип:✗(not_machine_counted)
+OK      Х-48   label=clean      pred=-
+
+вердикт: верно 26/42  | пропуски 6  | ложные 10  | таймкод ±2с у верных нарушений: 4/16  | тип верный: 12/19
+
+===== gate =====
+ERR     Х-1    label=V@22       pred=-
+ERR     Х-2    label=V@10       pred=-
+OK      Х-3    label=clean      pred=-
+OK  loc Х-4    label=V@57       pred=57s Наличные открыто на рабочем месте тип:✓(cash_on_desk)
+OK      Х-5    label=clean      pred=-
+OK      Х-8    label=clean      pred=-
+ERR     Х-10   label=clean      pred=0s Наличные открыто на рабочем месте
+ERR     Х-11   label=V@18       pred=- тип:✗(screen_unlocked)
+OK      Х-12   label=clean      pred=-
+OK      Х-13   label=V@47       pred=39s Наличные оставлены без присмотра
+ERR     Х-14   label=clean      pred=31s Наличные оставлены без присмотра; 44s Наличные открыто на рабочем месте; 71s Наличные открыто на рабочем месте; 102s Наличные открыто на рабочем месте; 116s Сейф оставлен открытым
+OK      Х-15   label=V@15       pred=0s Личные вещи на рабочем месте кассира тип:✗(cash_on_desk)
+OK      Х-16   label=clean      pred=-
+OK      Х-17   label=V@7        pred=4s Приём инкассаторской сумки без проверки документов; 10s Личные вещи на рабочем месте кассира тип:✓(bag_no_doc)
+OK      Х-18   label=V@20       pred=16s Посторонний в кассовом помещении тип:✓(extra_person)
+ERR     Х-19   label=clean      pred=54s Посторонний в кассовом помещении
+ERR     Х-20   label=V@5        pred=- тип:✗(safe_open)
+OK      Х-21   label=clean      pred=-
+ERR     Х-22   label=V@14       pred=- тип:✗(key_in_safe)
+OK      Х-23   label=clean      pred=-
+ERR     Х-24   label=V@8        pred=- тип:✗(items_left)
+OK      Х-25   label=clean      pred=-
+OK  loc Х-26   label=V@9        pred=10s Наличные оставлены без присмотра тип:✓(cash_on_desk)
+OK      Х-27   label=clean      pred=-
+OK  loc Х-28   label=V@7        pred=7s Рабочая станция не заблокирована при уходе тип:✓(screen_unlocked)
+ERR     Х-29   label=clean      pred=7s Рабочая станция не заблокирована при уходе
+OK      Х-30   label=V@13       pred=2s Дверь кассы оставлена открытой тип:✓(door_open)
+OK      Х-31   label=clean      pred=-
+OK  loc Х-32   label=V@5        pred=6s Дверь кассы оставлена открытой тип:✓(door_open)
+OK      Х-33   label=V@6        pred=4s Дверь кассы оставлена открытой тип:✓(door_open)
+ERR     Х-34   label=V@13       pred=- тип:✗(count_without_client)
+ERR     Х-35   label=clean      pred=41s Сейф оставлен открытым
+OK      Х-37   label=clean      pred=-
+OK      Х-38   label=V@33       pred=24s Наличные открыто на рабочем месте; 44s Посторонний в кассовом помещении тип:✓(cash_on_desk)
+OK      Х-39   label=clean      pred=-
+OK      Х-40   label=V@17       pred=8s Личные вещи на рабочем месте кассира тип:✓(personal_items)
+ERR     Х-43   label=clean      pred=14s Наличные открыто на рабочем месте
+ERR     Х-44   label=V@16       pred=- тип:✗(uv_not_checked)
+ERR     Х-45   label=clean      pred=9s Наличные открыто на рабочем месте; 15s Пересчёт наличных в отсутствие клиента
+OK      Х-46   label=V@11       pred=4s Наличные открыто на рабочем месте тип:✓(cash_on_desk)
+OK      Х-47   label=V@68       pred=57s Наличные открыто на рабочем месте тип:✗(not_machine_counted)
+OK      Х-48   label=clean      pred=-
+
+вердикт: верно 27/42  | пропуски 8  | ложные 7  | таймкод ±2с у верных нарушений: 4/14  | тип верный: 11/19
+
+===== gate+tv =====
+ERR     Х-1    label=V@22       pred=-
+ERR     Х-2    label=V@10       pred=-
+OK      Х-3    label=clean      pred=-
+OK  loc Х-4    label=V@57       pred=57s Наличные открыто на рабочем месте тип:✓(cash_on_desk)
+OK      Х-5    label=clean      pred=-
+OK      Х-8    label=clean      pred=-
+ERR     Х-10   label=clean      pred=0s Наличные открыто на рабочем месте
+OK  loc Х-11   label=V@18       pred=18s workstation_unlocked тип:✗(screen_unlocked)
+OK      Х-12   label=clean      pred=-
+OK      Х-13   label=V@47       pred=39s Наличные оставлены без присмотра
+ERR     Х-14   label=clean      pred=31s Наличные оставлены без присмотра; 44s Наличные открыто на рабочем месте; 71s Наличные открыто на рабочем месте; 102s Наличные открыто на рабочем месте; 116s Сейф оставлен открытым
+OK      Х-15   label=V@15       pred=0s Личные вещи на рабочем месте кассира тип:✗(cash_on_desk)
+OK      Х-16   label=clean      pred=-
+OK      Х-17   label=V@7        pred=4s Приём инкассаторской сумки без проверки документов; 10s Личные вещи на рабочем месте кассира тип:✓(bag_no_doc)
+OK      Х-18   label=V@20       pred=16s Посторонний в кассовом помещении тип:✓(extra_person)
+ERR     Х-19   label=clean      pred=54s Посторонний в кассовом помещении
+ERR     Х-20   label=V@5        pred=- тип:✗(safe_open)
+OK      Х-21   label=clean      pred=-
+ERR     Х-22   label=V@14       pred=- тип:✗(key_in_safe)
+OK      Х-23   label=clean      pred=-
+OK      Х-24   label=V@8        pred=13s work_items_left тип:✗(items_left)
+OK      Х-25   label=clean      pred=-
+OK  loc Х-26   label=V@9        pred=10s Наличные оставлены без присмотра тип:✓(cash_on_desk)
+OK      Х-27   label=clean      pred=-
+OK  loc Х-28   label=V@7        pred=7s Рабочая станция не заблокирована при уходе тип:✓(screen_unlocked)
+ERR     Х-29   label=clean      pred=7s Рабочая станция не заблокирована при уходе
+OK      Х-30   label=V@13       pred=2s Дверь кассы оставлена открытой тип:✓(door_open)
+OK      Х-31   label=clean      pred=-
+OK  loc Х-32   label=V@5        pred=6s Дверь кассы оставлена открытой тип:✓(door_open)
+OK      Х-33   label=V@6        pred=4s Дверь кассы оставлена открытой тип:✓(door_open)
+ERR     Х-34   label=V@13       pred=- тип:✗(count_without_client)
+ERR     Х-35   label=clean      pred=41s Сейф оставлен открытым
+OK      Х-37   label=clean      pred=-
+OK      Х-38   label=V@33       pred=24s Наличные открыто на рабочем месте; 44s Посторонний в кассовом помещении тип:✓(cash_on_desk)
+OK      Х-39   label=clean      pred=-
+OK      Х-40   label=V@17       pred=8s Личные вещи на рабочем месте кассира тип:✓(personal_items)
+ERR     Х-43   label=clean      pred=14s Наличные открыто на рабочем месте
+ERR     Х-44   label=V@16       pred=- тип:✗(uv_not_checked)
+ERR     Х-45   label=clean      pred=9s Наличные открыто на рабочем месте; 15s Пересчёт наличных в отсутствие клиента
+OK      Х-46   label=V@11       pred=4s Наличные открыто на рабочем месте тип:✓(cash_on_desk)
+OK      Х-47   label=V@68       pred=57s Наличные открыто на рабочем месте тип:✗(not_machine_counted)
+OK      Х-48   label=clean      pred=-
+
+вердикт: верно 29/42  | пропуски 6  | ложные 7  | таймкод ±2с у верных нарушений: 5/16  | тип верный: 11/19
+
+Изменения относительно main:
+Х-4: main ['screen_unlocked_absent', 'screen_unlocked_absent', 'cash_left_on_desk'] -> gate ['cash_left_on_desk']
+Х-11: main ['screen_unlocked_absent'] -> gate [] + трекинг workstation_unlocked@18.4
+Х-13: main ['screen_unlocked_absent', 'cash_unattended'] -> gate ['cash_unattended']
+Х-14: main ['cash_unattended', 'screen_unlocked_absent', 'cash_left_on_desk', 'cash_left_on_desk', 'cash_left_on_desk', 'safe_open_while_seated'] -> gate ['cash_unattended', 'cash_left_on_desk', 'cash_left_on_desk', 'cash_left_on_desk', 'safe_open_while_seated']
+Х-15: main ['personal_items', 'screen_unlocked_absent'] -> gate ['personal_items']
+Х-22: main ['screen_unlocked_absent'] -> gate []
+Х-23: main ['screen_unlocked_absent'] -> gate []
+Х-24: main [] -> gate [] + трекинг work_items_left@13.4
+Х-25: main ['screen_unlocked_absent'] -> gate []
+Х-27: main ['screen_unlocked_absent'] -> gate []
+Х-47: main ['screen_unlocked_absent', 'screen_unlocked_absent', 'cash_left_on_desk'] -> gate ['cash_left_on_desk']
