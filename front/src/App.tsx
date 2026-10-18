@@ -639,6 +639,7 @@ function App() {
     const uploadedItem = uploadState.jobId
       ? investigationsRef.current.find((item) => item.jobId === uploadState.jobId)
       : undefined
+    if (uploadedItem) setSelectedInvestigation(uploadedItem)
     finishUploadFlow(true)
     if (uploadedItem) void openInvestigation(uploadedItem)
   }

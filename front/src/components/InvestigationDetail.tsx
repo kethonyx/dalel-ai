@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { AlertTriangle, Check, CheckCircle2, Clock3, MessageSquareText, ShieldCheck, UserRound, X } from 'lucide-react'
 import type { AnalysisViolation, StoredInvestigation } from '../services/videoApi'
@@ -32,16 +32,41 @@ export function InvestigationDetail({ item, workers, onAssignWorker, onClose }: 
   const reduceMotion = useReducedMotion()
   const videoRef = useRef<HTMLVideoElement>(null)
   const [activeEvent, setActiveEvent] = useState<number | null>(null)
+  const [playbackTime, setPlaybackTime] = useState(0)
+  const [videoDuration, setVideoDuration] = useState(item.durationSeconds ?? 0)
   const [assigningWorker, setAssigningWorker] = useState(false)
   const [assignmentError, setAssignmentError] = useState('')
   const { review, updateReview, setEventDecision, saveReview } = useReviewStore(item.jobId)
   const events = item.violations ?? []
+  const seekDuration = videoDuration || item.durationSeconds || 0
+
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => { document.body.style.overflow = previousOverflow }
+  }, [])
+
+  function seekTo(seconds: number) {
+    const target = Math.max(0, Math.min(seconds, seekDuration || seconds))
+    setPlaybackTime(target)
+    if (videoRef.current) videoRef.current.currentTime = target
+  }
 
   function jumpTo(seconds: number, index: number) {
     setActiveEvent(index)
     if (!videoRef.current) return
-    videoRef.current.currentTime = seconds
+    seekTo(seconds)
     void videoRef.current.play().catch(() => undefined)
+  }
+
+  function syncPlayback() {
+    const currentTime = videoRef.current?.currentTime ?? 0
+    setPlaybackTime(currentTime)
+    const nearestEvent = events.reduce<{ index: number; distance: number } | null>((nearest, event, index) => {
+      const distance = Math.abs(event.timecode_sec - currentTime)
+      return !nearest || distance < nearest.distance ? { index, distance } : nearest
+    }, null)
+    setActiveEvent(nearestEvent && nearestEvent.distance <= 1.5 ? nearestEvent.index : null)
   }
 
   function handleSave() {
@@ -90,18 +115,20 @@ export function InvestigationDetail({ item, workers, onAssignWorker, onClose }: 
           <div className="detail-layout">
             <main className="detail-main-column">
               <section className="detail-player-panel" aria-label="Investigation video">
-                {item.streamUrl ? <video ref={videoRef} src={item.streamUrl} controls playsInline preload="metadata" /> : (
+                {item.streamUrl ? <video ref={videoRef} src={item.streamUrl} controls playsInline preload="metadata" onLoadedMetadata={(event) => { setVideoDuration(event.currentTarget.duration); setPlaybackTime(event.currentTarget.currentTime) }} onDurationChange={(event) => setVideoDuration(event.currentTarget.duration)} onTimeUpdate={syncPlayback} /> : (
                   <div className="detail-video-empty"><AlertTriangle size={19} /><span>Video preview is not available right now.</span></div>
                 )}
                 <div className="detail-video-meta"><span><Clock3 size={13} /> {item.durationSeconds === null ? 'Duration unavailable' : formatTime(item.durationSeconds)}</span><span>{item.fileName} · {formatDate(item.createdAt)}</span></div>
                 <div className="case-timeline" aria-label="Video event timeline">
                   <div className="case-timeline-track" />
+                  <div className="case-timeline-progress" style={{ width: `${seekDuration > 0 ? Math.min(100, playbackTime / seekDuration * 100) : 0}%` }} />
+                  <input className="case-timeline-seek" type="range" min="0" max={seekDuration || 1} step="0.1" value={Math.min(playbackTime, seekDuration || 0)} disabled={!item.streamUrl || !seekDuration} aria-label="Seek through video" onChange={(event) => seekTo(Number(event.currentTarget.value))} />
                   {events.map((event, index) => {
-                    const ratio = item.durationSeconds && item.durationSeconds > 0 ? Math.min(1, event.timecode_sec / item.durationSeconds) : 0
+                    const ratio = seekDuration > 0 ? Math.min(1, event.timecode_sec / seekDuration) : 0
                     return <button key={`${event.timecode_sec}-${index}`} className={`case-timeline-mark${activeEvent === index ? ' active' : ''}`} style={{ left: `${ratio * 100}%` }} type="button" aria-label={`Jump to ${formatTime(event.timecode_sec)}: ${event.type}`} onClick={() => jumpTo(event.timecode_sec, index)} />
                   })}
                 </div>
-                <div className="case-timeline-labels"><span>00:00</span><span>{events.length} {events.length === 1 ? 'event' : 'events'}</span><span>{item.durationSeconds === null ? '--:--' : formatTime(item.durationSeconds)}</span></div>
+                <div className="case-timeline-labels"><span>{formatTime(playbackTime)}</span><span className="case-timeline-legend"><i className="event-marker-key" /> Event <i className="playhead-key" /> Playback</span><span>{seekDuration > 0 ? formatTime(seekDuration) : '--:--'}</span></div>
               </section>
 
               <section className="case-review-panel" aria-labelledby="review-title">
@@ -117,7 +144,7 @@ export function InvestigationDetail({ item, workers, onAssignWorker, onClose }: 
             <aside className="detail-events-panel" aria-labelledby="case-events-title">
               <div className="case-section-title"><div><span className="micro-label">ANALYSIS RESULTS</span><h3 id="case-events-title">Events <span>{events.length.toString().padStart(2, '0')}</span></h3></div><span className={`verdict-pill ${item.verdict === 'violation' || (!item.verdict && events.length) ? 'violation' : 'clean'}`}><i />{item.verdict === 'violation' || (!item.verdict && events.length) ? 'Violation detected' : 'No violation'}</span></div>
               {events.length === 0 ? <div className="detail-no-events"><ShieldCheck size={20} /><strong>No events reported</strong><span>The completed analysis returned no violations.</span></div> : (
-                <div className="detail-events-list">
+                <div className="detail-events-list" aria-label="Detected events">
                   {events.map((event, index) => {
                     const decision = review.eventDecisions[String(index)] ?? 'pending'
                     return (
@@ -126,7 +153,7 @@ export function InvestigationDetail({ item, workers, onAssignWorker, onClose }: 
                           <span className="detail-event-heading"><strong>{event.type}</strong><span>{formatTime(event.timecode_sec)}</span></span>
                           <span className="detail-event-description">{event.description}</span>
                         </button>
-                        {event.evidence_frames?.[0] && <img className="event-evidence-frame" src={evidenceSource(event.evidence_frames[0].image_base64)} alt={`Evidence at ${formatTime(event.evidence_frames[0].timestamp_sec)}`} />}
+                        {event.evidence_frames?.[0] && <button className="event-evidence-button" type="button" aria-label={`Play video at ${formatTime(event.timecode_sec)} for ${event.type}`} onClick={() => jumpTo(event.timecode_sec, index)}><img className="event-evidence-frame" src={evidenceSource(event.evidence_frames[0].image_base64)} alt={`Evidence at ${formatTime(event.evidence_frames[0].timestamp_sec)}`} /><span>Jump to {formatTime(event.timecode_sec)} <span aria-hidden="true">▶</span></span></button>}
                         {event.rule && <div className="event-rule-ref">{event.rule.document}{event.rule.section ? ` · ${event.rule.section}` : ''}{event.rule.url && <a href={event.rule.url} target="_blank" rel="noreferrer">Source</a>}</div>}
                         <div className="detail-event-review"><span className={`review-decision-label ${decision}`}>{statusLabel(decision)}</span><div><button type="button" className={`decision-button confirm${decision === 'confirmed' ? ' selected' : ''}`} onClick={() => setEventDecision(index, 'confirmed')}><Check size={12} /> Confirm</button><button type="button" className={`decision-button dismiss${decision === 'dismissed' ? ' selected' : ''}`} onClick={() => setEventDecision(index, 'dismissed')}><X size={12} /> Dismiss</button></div></div>
                       </article>
