@@ -24,5 +24,10 @@ export default defineConfig(({ mode }) => {
         '/api/v1': protectedApiProxy,
       },
     },
+    // боевой показ: собранный фронт через vite preview (прокси те же, ключ подставляет сервер),
+    // наружу — туннелем pinggy (scripts/front.sh)
+    preview: {
+      allowedHosts: ['.pinggy.link', '.pinggy-free.link', '.pinggy.net'],
+    },
   }
 })
