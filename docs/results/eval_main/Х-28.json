@@ -1,0 +1,716 @@
+{
+ "job_id": "Х-28",
+ "status": "done",
+ "verdict": "violation",
+ "violations": [
+  {
+   "type": "Рабочая станция не заблокирована при уходе",
+   "timecode_sec": 6.8,
+   "description": "Кассир отошёл от рабочего места, экран ноутбука включён и не заблокирован (с 6.8 с). Смежная норма: регулятор требует блокировки рабочей станции при неактивности пользователя; уход без блокировки оставляет доступ к системе. Правило: Требования к обеспечению информационной безопасности банков… (постановление Правления НБРК от 27.03.2018 № 48), п. 71, пп. 9.",
+   "evidence_frames": "<3 frames>",
+   "rule": {
+    "document": "Требования к обеспечению информационной безопасности банков… (постановление Правления НБРК от 27.03.2018 № 48)",
+    "section": "п. 71, пп. 9",
+    "url": "https://adilet.zan.kz/rus/docs/V1800016772"
+   }
+  }
+ ],
+ "_debug": {
+  "duration": 16.533021,
+  "frames_total": 17,
+  "frames_analyzed": 17,
+  "zones": {
+   "zone": [
+    0.07700000000000001,
+    0.14284999999999998,
+    0.831,
+    0.6906
+   ],
+   "safe": [
+    0.36360000000000003,
+    0.265,
+    0.6803999999999999,
+    0.49
+   ],
+   "desk": [
+    0.14339999999999997,
+    0.28559999999999997,
+    0.7726,
+    0.628
+   ],
+   "found": {
+    "cashier desk": 3,
+    "metal safe": 3,
+    "banknote counting machine": 3
+   }
+  },
+  "timeline": [
+   {
+    "t": 0.0,
+    "a": {
+     "cashier_seated": "yes",
+     "safe_open": "no",
+     "cash_on_desk": "no",
+     "eating_now": "no",
+     "personal_items": "no",
+     "visitor": "yes",
+     "crowd": "no",
+     "cash_handover": "no",
+     "cash_in_machine": "no",
+     "held_object": "nothing"
+    },
+    "r": {
+     "cashier_seated": "",
+     "safe_open": "",
+     "cash_on_desk": "",
+     "eating_now": "",
+     "personal_items": "",
+     "visitor": "",
+     "crowd": "",
+     "cash_handover": "",
+     "cash_in_machine": "",
+     "held_object": ""
+    }
+   },
+   {
+    "t": 0.97,
+    "a": {
+     "cashier_seated": "yes",
+     "safe_open": "no",
+     "cash_on_desk": "no",
+     "visitor": "yes",
+     "crowd": "no",
+     "cash_handover": "no",
+     "cash_in_machine": "no",
+     "held_object": "nothing",
+     "eating_now": "no",
+     "personal_items": "no"
+    },
+    "r": {
+     "cashier_seated": "",
+     "safe_open": "",
+     "cash_on_desk": "",
+     "visitor": "",
+     "crowd": "",
+     "cash_handover": "",
+     "cash_in_machine": "",
+     "held_object": ""
+    }
+   },
+   {
+    "t": 1.95,
+    "a": {
+     "cashier_seated": "yes",
+     "safe_open": "no",
+     "cash_on_desk": "no",
+     "eating_now": "no",
+     "personal_items": "no",
+     "visitor": "yes",
+     "crowd": "no",
+     "cash_handover": "no",
+     "cash_in_machine": "no",
+     "held_object": "nothing"
+    },
+    "r": {
+     "cashier_seated": "",
+     "safe_open": "",
+     "cash_on_desk": "",
+     "eating_now": "",
+     "personal_items": "",
+     "visitor": "",
+     "crowd": "",
+     "cash_handover": "",
+     "cash_in_machine": "",
+     "held_object": ""
+    }
+   },
+   {
+    "t": 2.92,
+    "a": {
+     "cashier_seated": "yes",
+     "safe_open": "no",
+     "cash_on_desk": "no",
+     "visitor": "yes",
+     "crowd": "no",
+     "cash_handover": "no",
+     "cash_in_machine": "no",
+     "held_object": "nothing",
+     "eating_now": "no",
+     "personal_items": "no"
+    },
+    "r": {
+     "cashier_seated": "",
+     "safe_open": "",
+     "cash_on_desk": "",
+     "visitor": "",
+     "crowd": "",
+     "cash_handover": "",
+     "cash_in_machine": "",
+     "held_object": ""
+    }
+   },
+   {
+    "t": 3.89,
+    "a": {
+     "cashier_seated": "yes",
+     "safe_open": "no",
+     "cash_on_desk": "no",
+     "eating_now": "no",
+     "personal_items": "no",
+     "visitor": "yes",
+     "crowd": "no",
+     "cash_handover": "no",
+     "cash_in_machine": "no",
+     "held_object": "nothing"
+    },
+    "r": {
+     "cashier_seated": "",
+     "safe_open": "",
+     "cash_on_desk": "",
+     "eating_now": "",
+     "personal_items": "",
+     "visitor": "",
+     "crowd": "",
+     "cash_handover": "",
+     "cash_in_machine": "",
+     "held_object": ""
+    }
+   },
+   {
+    "t": 4.86,
+    "a": {
+     "cashier_seated": "yes",
+     "safe_open": "no",
+     "cash_on_desk": "no",
+     "visitor": "yes",
+     "crowd": "no",
+     "cash_handover": "no",
+     "cash_in_machine": "no",
+     "held_object": "nothing",
+     "eating_now": "no",
+     "personal_items": "no"
+    },
+    "r": {
+     "cashier_seated": "",
+     "safe_open": "",
+     "cash_on_desk": "",
+     "visitor": "",
+     "crowd": "",
+     "cash_handover": "",
+     "cash_in_machine": "",
+     "held_object": ""
+    }
+   },
+   {
+    "t": 5.84,
+    "a": {
+     "cashier_seated": "yes",
+     "safe_open": "no",
+     "cash_on_desk": "no",
+     "eating_now": "no",
+     "personal_items": "no",
+     "visitor": "yes",
+     "crowd": "no",
+     "cash_handover": "no",
+     "cash_in_machine": "no",
+     "held_object": "nothing"
+    },
+    "r": {
+     "cashier_seated": "",
+     "safe_open": "",
+     "cash_on_desk": "",
+     "eating_now": "",
+     "personal_items": "",
+     "visitor": "",
+     "crowd": "",
+     "cash_handover": "",
+     "cash_in_machine": "",
+     "held_object": ""
+    }
+   },
+   {
+    "t": 6.81,
+    "a": {
+     "cashier_seated": "no",
+     "safe_open": "no",
+     "cash_on_desk": "no",
+     "visitor": "no",
+     "screen_unlocked": "yes",
+     "cash_in_machine": "no",
+     "person_in_room": "yes",
+     "key_in_safe": "no",
+     "eating_now": "no",
+     "personal_items": "no"
+    },
+    "r": {
+     "cashier_seated": "",
+     "safe_open": "",
+     "cash_on_desk": "",
+     "visitor": "",
+     "screen_unlocked": "",
+     "cash_in_machine": "",
+     "person_in_room": "",
+     "key_in_safe": ""
+    }
+   },
+   {
+    "t": 7.78,
+    "a": {
+     "cashier_seated": "no",
+     "safe_open": "no",
+     "cash_on_desk": "no",
+     "eating_now": "no",
+     "personal_items": "no",
+     "visitor": "no",
+     "screen_unlocked": "yes",
+     "cash_in_machine": "no",
+     "person_in_room": "yes",
+     "key_in_safe": "no"
+    },
+    "r": {
+     "cashier_seated": "",
+     "safe_open": "",
+     "cash_on_desk": "",
+     "eating_now": "",
+     "personal_items": "",
+     "visitor": "",
+     "screen_unlocked": "",
+     "cash_in_machine": "",
+     "person_in_room": "",
+     "key_in_safe": ""
+    }
+   },
+   {
+    "t": 8.75,
+    "a": {
+     "cashier_seated": "no",
+     "safe_open": "no",
+     "cash_on_desk": "no",
+     "visitor": "yes",
+     "crowd": "no",
+     "cash_handover": "no",
+     "screen_unlocked": "yes",
+     "cash_in_machine": "no",
+     "held_object": "nothing",
+     "person_in_room": "yes",
+     "key_in_safe": "no",
+     "eating_now": "no",
+     "personal_items": "no"
+    },
+    "r": {
+     "cashier_seated": "",
+     "safe_open": "",
+     "cash_on_desk": "",
+     "visitor": "",
+     "crowd": "",
+     "cash_handover": "",
+     "screen_unlocked": "",
+     "cash_in_machine": "",
+     "held_object": "",
+     "person_in_room": "",
+     "key_in_safe": ""
+    }
+   },
+   {
+    "t": 9.73,
+    "a": {
+     "cashier_seated": "no",
+     "safe_open": "no",
+     "cash_on_desk": "no",
+     "eating_now": "no",
+     "personal_items": "no",
+     "visitor": "yes",
+     "crowd": "no",
+     "cash_handover": "no",
+     "screen_unlocked": "yes",
+     "cash_in_machine": "no",
+     "held_object": "nothing",
+     "person_in_room": "yes",
+     "key_in_safe": "no"
+    },
+    "r": {
+     "cashier_seated": "",
+     "safe_open": "",
+     "cash_on_desk": "",
+     "eating_now": "",
+     "personal_items": "",
+     "visitor": "",
+     "crowd": "",
+     "cash_handover": "",
+     "screen_unlocked": "",
+     "cash_in_machine": "",
+     "held_object": "",
+     "person_in_room": "",
+     "key_in_safe": ""
+    }
+   },
+   {
+    "t": 10.7,
+    "a": {
+     "cashier_seated": "no",
+     "safe_open": "no",
+     "cash_on_desk": "no",
+     "visitor": "yes",
+     "crowd": "no",
+     "cash_handover": "no",
+     "screen_unlocked": "yes",
+     "cash_in_machine": "no",
+     "held_object": "nothing",
+     "person_in_room": "yes",
+     "key_in_safe": "no",
+     "eating_now": "no",
+     "personal_items": "no"
+    },
+    "r": {
+     "cashier_seated": "",
+     "safe_open": "",
+     "cash_on_desk": "",
+     "visitor": "",
+     "crowd": "",
+     "cash_handover": "",
+     "screen_unlocked": "",
+     "cash_in_machine": "",
+     "held_object": "",
+     "person_in_room": "",
+     "key_in_safe": ""
+    }
+   },
+   {
+    "t": 11.67,
+    "a": {
+     "cashier_seated": "no",
+     "safe_open": "no",
+     "cash_on_desk": "no",
+     "eating_now": "no",
+     "personal_items": "no",
+     "visitor": "yes",
+     "crowd": "no",
+     "cash_handover": "no",
+     "screen_unlocked": "yes",
+     "cash_in_machine": "no",
+     "held_object": "nothing",
+     "person_in_room": "yes",
+     "key_in_safe": "no"
+    },
+    "r": {
+     "cashier_seated": "",
+     "safe_open": "",
+     "cash_on_desk": "",
+     "eating_now": "",
+     "personal_items": "",
+     "visitor": "",
+     "crowd": "",
+     "cash_handover": "",
+     "screen_unlocked": "",
+     "cash_in_machine": "",
+     "held_object": "",
+     "person_in_room": "",
+     "key_in_safe": ""
+    }
+   },
+   {
+    "t": 12.64,
+    "a": {
+     "cashier_seated": "no",
+     "safe_open": "no",
+     "cash_on_desk": "no",
+     "visitor": "yes",
+     "crowd": "no",
+     "cash_handover": "no",
+     "screen_unlocked": "yes",
+     "cash_in_machine": "no",
+     "held_object": "nothing",
+     "person_in_room": "yes",
+     "key_in_safe": "no",
+     "eating_now": "no",
+     "personal_items": "no"
+    },
+    "r": {
+     "cashier_seated": "",
+     "safe_open": "",
+     "cash_on_desk": "",
+     "visitor": "",
+     "crowd": "",
+     "cash_handover": "",
+     "screen_unlocked": "",
+     "cash_in_machine": "",
+     "held_object": "",
+     "person_in_room": "",
+     "key_in_safe": ""
+    }
+   },
+   {
+    "t": 13.62,
+    "a": {
+     "cashier_seated": "no",
+     "safe_open": "no",
+     "cash_on_desk": "no",
+     "eating_now": "no",
+     "personal_items": "no",
+     "visitor": "yes",
+     "crowd": "no",
+     "cash_handover": "no",
+     "screen_unlocked": "yes",
+     "cash_in_machine": "no",
+     "held_object": "nothing",
+     "person_in_room": "yes",
+     "key_in_safe": "no"
+    },
+    "r": {
+     "cashier_seated": "",
+     "safe_open": "",
+     "cash_on_desk": "",
+     "eating_now": "",
+     "personal_items": "",
+     "visitor": "",
+     "crowd": "",
+     "cash_handover": "",
+     "screen_unlocked": "",
+     "cash_in_machine": "",
+     "held_object": "",
+     "person_in_room": "",
+     "key_in_safe": ""
+    }
+   },
+   {
+    "t": 14.59,
+    "a": {
+     "cashier_seated": "no",
+     "safe_open": "no",
+     "cash_on_desk": "no",
+     "visitor": "yes",
+     "crowd": "no",
+     "cash_handover": "no",
+     "screen_unlocked": "yes",
+     "cash_in_machine": "no",
+     "held_object": "nothing",
+     "person_in_room": "yes",
+     "key_in_safe": "no",
+     "eating_now": "no",
+     "personal_items": "no"
+    },
+    "r": {
+     "cashier_seated": "",
+     "safe_open": "",
+     "cash_on_desk": "",
+     "visitor": "",
+     "crowd": "",
+     "cash_handover": "",
+     "screen_unlocked": "",
+     "cash_in_machine": "",
+     "held_object": "",
+     "person_in_room": "",
+     "key_in_safe": ""
+    }
+   },
+   {
+    "t": 15.56,
+    "a": {
+     "cashier_seated": "no",
+     "safe_open": "no",
+     "cash_on_desk": "no",
+     "eating_now": "no",
+     "personal_items": "no",
+     "visitor": "no",
+     "screen_unlocked": "yes",
+     "cash_in_machine": "no",
+     "person_in_room": "no",
+     "key_in_safe": "no"
+    },
+    "r": {
+     "cashier_seated": "",
+     "safe_open": "",
+     "cash_on_desk": "",
+     "eating_now": "",
+     "personal_items": "",
+     "visitor": "",
+     "screen_unlocked": "",
+     "cash_in_machine": "",
+     "person_in_room": "",
+     "key_in_safe": ""
+    }
+   }
+  ],
+  "signals": {
+   "door": {
+    "box": [
+     0.0,
+     0.014,
+     0.538,
+     0.54
+    ],
+    "rows": [
+     {
+      "t": 0.0,
+      "d": 0.0,
+      "light": 1.0
+     },
+     {
+      "t": 0.5,
+      "d": 0.0,
+      "light": 1.0
+     },
+     {
+      "t": 1.0,
+      "d": 0.0,
+      "light": 1.0
+     },
+     {
+      "t": 1.5,
+      "d": 0.0,
+      "light": 1.0
+     },
+     {
+      "t": 2.0,
+      "d": 0.0,
+      "light": 1.0
+     },
+     {
+      "t": 2.5,
+      "d": 0.0,
+      "light": 0.999
+     },
+     {
+      "t": 3.0,
+      "d": 0.0,
+      "light": 1.0
+     },
+     {
+      "t": 3.5,
+      "d": 0.0,
+      "light": 1.002
+     },
+     {
+      "t": 4.0,
+      "d": 0.0,
+      "light": 1.004
+     },
+     {
+      "t": 4.5,
+      "d": 0.0,
+      "light": 1.003
+     },
+     {
+      "t": 5.0,
+      "d": 0.0,
+      "light": 1.002
+     },
+     {
+      "t": 5.5,
+      "d": 0.001,
+      "light": 1.002
+     },
+     {
+      "t": 6.0,
+      "d": 0.02,
+      "light": 1.001
+     },
+     {
+      "t": 6.5,
+      "d": 0.021,
+      "light": 0.996
+     },
+     {
+      "t": 7.0,
+      "d": 0.023,
+      "light": 0.997
+     },
+     {
+      "t": 7.5,
+      "d": 0.012,
+      "light": 0.998
+     },
+     {
+      "t": 8.0,
+      "d": 0.02,
+      "light": 0.997
+     },
+     {
+      "t": 8.5,
+      "d": 0.021,
+      "light": 0.995
+     },
+     {
+      "t": 9.0,
+      "d": 0.009,
+      "light": 0.992
+     },
+     {
+      "t": 9.5,
+      "d": 0.012,
+      "light": 0.991
+     },
+     {
+      "t": 10.0,
+      "d": 0.039,
+      "light": 0.99
+     },
+     {
+      "t": 10.5,
+      "d": 0.109,
+      "light": 0.992
+     },
+     {
+      "t": 11.0,
+      "d": 0.166,
+      "light": 0.983
+     },
+     {
+      "t": 11.5,
+      "d": 0.135,
+      "light": 0.977
+     },
+     {
+      "t": 12.0,
+      "d": 0.144,
+      "light": 0.98
+     },
+     {
+      "t": 12.5,
+      "d": 0.181,
+      "light": 0.991
+     },
+     {
+      "t": 13.0,
+      "d": 0.157,
+      "light": 1.001
+     },
+     {
+      "t": 13.5,
+      "d": 0.073,
+      "light": 1.0
+     },
+     {
+      "t": 14.0,
+      "d": 0.073,
+      "light": 0.998
+     },
+     {
+      "t": 14.5,
+      "d": 0.073,
+      "light": 0.998
+     },
+     {
+      "t": 15.0,
+      "d": 0.034,
+      "light": 0.997
+     },
+     {
+      "t": 15.5,
+      "d": 0.053,
+      "light": 0.999
+     },
+     {
+      "t": 16.0,
+      "d": 0.052,
+      "light": 0.999
+     }
+    ],
+    "max_shift": 1.4
+   }
+  },
+  "model": "Qwen3VL-30B-A3B-Instruct-Q4_K_M.gguf",
+  "model_switches": [],
+  "seconds": 73.3
+ }
+}
