@@ -275,7 +275,7 @@ def _worker_stats_view(worker: dict) -> dict:
             "analyzed_video_count": analyzed,
             "violation_count": violations,
             "analyzed_duration_sec": duration,
-            "rating": round(max(0, min(100, 100 - violations * 600 / duration))) if duration > 0 else None}
+            "rating": round(max(0, min(100, 100 - violations * 60 / duration))) if duration > 0 else None}
 
 
 def _selected_run(video_id: UUID, run_id: UUID | None) -> dict | None:

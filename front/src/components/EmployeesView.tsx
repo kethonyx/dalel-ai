@@ -18,7 +18,7 @@ function sizeLabel(bytes: number) {
 
 function performanceIndex(durationSeconds: number, violations: number) {
   if (durationSeconds <= 0) return null
-  return Math.max(0, Math.min(100, Math.round(100 - violations * 600 / durationSeconds)))
+  return Math.max(0, Math.min(100, Math.round(100 - violations * 60 / durationSeconds)))
 }
 
 function durationLabel(seconds: number) {
@@ -153,7 +153,7 @@ export function EmployeesView({ workers, loading, error, onRefresh, onCreated, o
 
       <section className="employee-index-preview" aria-label="Performance index">
         <div className="index-preview-mark"><ShieldCheck size={16} /></div>
-        <div className="index-preview-copy"><span className="micro-label">TEAM PERFORMANCE</span><h2>{teamIndex === null ? 'Index is being calculated' : `Team index · ${teamIndex}/100`}</h2><p>{teamDuration > 0 ? `${durationLabel(teamDuration)} analyzed · ${teamViolations} detected violations` : 'Complete an assigned video analysis to calculate the index.'} · Each violation reduces the score by 1 point per 10 minutes analyzed.</p></div>
+        <div className="index-preview-copy"><span className="micro-label">TEAM PERFORMANCE</span><h2>{teamIndex === null ? 'Index is being calculated' : `Team index · ${teamIndex}/100`}</h2><p>{teamDuration > 0 ? `${durationLabel(teamDuration)} analyzed · ${teamViolations} detected violations` : 'Complete an assigned video analysis to calculate the index.'} · Each violation reduces the score by 1 point per minute analyzed.</p></div>
         <div className="index-preview-score">{teamIndex === null ? '—' : teamIndex}<small>/100</small></div>
       </section>
 
@@ -188,7 +188,7 @@ export function EmployeesView({ workers, loading, error, onRefresh, onCreated, o
                     <div className="worker-video-list">{workerVideos.map((video) => <button className="worker-video-row" key={video.videoId} type="button" onClick={() => { setSelectedWorker(null); onOpenVideo(video) }}><span className="worker-video-icon"><FileVideo2 size={15} /></span><span className="worker-video-copy"><strong>{video.fileName}</strong><small>{sizeLabel(video.size)} · {dateLabel(video.createdAt)}</small></span><span className={`worker-video-status ${video.status ?? 'processing'}`}><i />{video.status === 'done' ? 'Complete' : video.status === 'failed' ? 'Failed' : 'Processing'}</span><ArrowUpRight className="worker-video-arrow" size={14} /></button>)}</div>
                   )}
                 </section>
-                <section className="worker-index-card"><span className="worker-index-icon"><ShieldCheck size={17} /></span><div><span className="micro-label">PERFORMANCE INDEX</span><h3>{performanceIndex(selectedWorker.analyzedDurationSeconds, selectedWorker.violationCount) === null ? 'Not enough data yet' : `${performanceIndex(selectedWorker.analyzedDurationSeconds, selectedWorker.violationCount)} / 100`}</h3><p>{selectedWorker.analyzedVideoCount} analyzed recordings · {durationLabel(selectedWorker.analyzedDurationSeconds)} analyzed · {selectedWorker.violationCount} detected violations. Each violation reduces the score by 1 point per 10 minutes analyzed.</p></div><div className="worker-index-lines" aria-hidden="true"><i /><i /><i /></div></section>
+                <section className="worker-index-card"><span className="worker-index-icon"><ShieldCheck size={17} /></span><div><span className="micro-label">PERFORMANCE INDEX</span><h3>{performanceIndex(selectedWorker.analyzedDurationSeconds, selectedWorker.violationCount) === null ? 'Not enough data yet' : `${performanceIndex(selectedWorker.analyzedDurationSeconds, selectedWorker.violationCount)} / 100`}</h3><p>{selectedWorker.analyzedVideoCount} analyzed recordings · {durationLabel(selectedWorker.analyzedDurationSeconds)} analyzed · {selectedWorker.violationCount} detected violations. Each violation reduces the score by 1 point per minute analyzed.</p></div><div className="worker-index-lines" aria-hidden="true"><i /><i /><i /></div></section>
               </div>
             </motion.section>
           </motion.div>
