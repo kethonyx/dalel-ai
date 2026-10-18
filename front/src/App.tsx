@@ -634,6 +634,15 @@ function App() {
     if (openInvestigations) navigateToSection('investigations')
   }
 
+  function returnToUploadedVideo() {
+    if (uploadState?.phase !== 'complete') return
+    const uploadedItem = uploadState.jobId
+      ? investigationsRef.current.find((item) => item.jobId === uploadState.jobId)
+      : undefined
+    finishUploadFlow(true)
+    if (uploadedItem) void openInvestigation(uploadedItem)
+  }
+
   async function openInvestigation(item: InvestigationItem) {
     let current = item
     try {
@@ -860,7 +869,7 @@ function App() {
                 })}
               </div>
               <div className={`upload-truth-note${uploadState.phase === 'processing' || uploadState.phase === 'complete' ? ' server-truth-note' : ''}`}><Info size={13} /><span>{uploadState.phase === 'transferring' ? 'Upload progress reflects the video being sent. Analysis progress updates automatically.' : uploadState.error ? uploadState.error : uploadState.phase === 'processing' ? 'Analysis progress and stage update automatically.' : uploadState.status === 'failed' ? 'Your uploaded video remains available in Investigations.' : 'The analysis result is ready in Investigations.'}</span></div>
-              {uploadState.phase === 'complete' && <div className="upload-dialog-actions"><button className="button-primary" type="button" onClick={() => finishUploadFlow(true)}>View Investigations <ArrowUpRight size={14} /></button><button className="button-secondary" type="button" onClick={() => finishUploadFlow(false)}>Return to video</button></div>}
+              {uploadState.phase === 'complete' && <div className="upload-dialog-actions"><button className="button-primary" type="button" onClick={() => finishUploadFlow(true)}>View Investigations <ArrowUpRight size={14} /></button><button className="button-secondary" type="button" onClick={returnToUploadedVideo}>Return to video</button></div>}
             </motion.section>
           </motion.div>
         )}
