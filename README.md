@@ -95,6 +95,8 @@ API отдаёт исходный файл без перекодирования
 ./scripts/serve.sh       # PostgreSQL (порт 5434) + сервис на 127.0.0.1:8000 с моделью
 ./scripts/public_url.sh  # публичный адрес (pinggy); текущий: cat ~/.dalel_public_url
 cat ~/.dalel_jury_key    # ключ X-API-Key для жюри (создаётся serve.sh при первом запуске)
+./scripts/front.sh       # собранный фронт на 127.0.0.1:4173 (ключ подставляет прокси vite)
+./scripts/public_url.sh front  # публичный адрес фронта: cat ~/.dalel_public_url_front
 ```
 
 Модель: Qwen3-VL-30B-A3B (llama.cpp) на кластере Shabyt, запуск — [hpc/README.md](hpc/README.md),
