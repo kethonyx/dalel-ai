@@ -27,7 +27,7 @@ from typing import Callable
 
 from PIL import Image
 
-from . import config, rules as rule_engine, vlm
+from . import config, door, rules as rule_engine, vlm
 
 ProgressFn = Callable[[str, float], None]
 
@@ -356,7 +356,16 @@ def analyze_video(job_id: str, video: Path, progress: ProgressFn | None = None,
             timeline = sorted(rows, key=lambda r: r["t"])
             fill_sparse(timeline, cfg["probes"])
 
-        events = rule_engine.evaluate(timeline, cfg["rules"], config.MERGE_GAP_SEC, config.MAX_EVENTS_PER_RULE)
+        signals: dict = {}
+        if (config.VLM_BACKEND != "stub" and any(r.get("signal") == "door" for r in cfg["rules"])
+                and door.available() and time.monotonic() < deadline):
+            progress("Дверь", 0.86)
+            box = door.find_door(frames[0]["path"])
+            if box:
+                signals["door"] = door.door_signal(video, box, lambda: time.monotonic() > deadline)
+
+        events = rule_engine.evaluate(timeline, cfg["rules"], config.MERGE_GAP_SEC, config.MAX_EVENTS_PER_RULE,
+                                      signals)
         if config.VLM_BACKEND == "stub" and config.STUB_DEMO:
             t = round(duration / 2, 1)
             demo = {"type": "ДЕМО: заглушка (модель не подключена)",
@@ -367,6 +376,6 @@ def analyze_video(job_id: str, video: Path, progress: ProgressFn | None = None,
         result = build_result(job_id, video, events)
         # служебное, в API не отдаётся (main._job_view фильтрует поля): для отладки и подбора правил
         result["_debug"] = {"duration": duration, "frames_total": len(frames), "frames_analyzed": len(timeline),
-                            "zones": zones, "timeline": timeline,
+                            "zones": zones, "timeline": timeline, "signals": signals,
                             "model": vlm.model_id().split("/")[-1], "model_switches": vlm.switches()}
         return result

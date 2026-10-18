@@ -180,7 +180,8 @@ def main() -> None:
             if not saved.exists():
                 continue
             dbg = json.loads(saved.read_text())["_debug"]
-            events = rule_engine.evaluate(dbg["timeline"], cfg["rules"], config.MERGE_GAP_SEC, config.MAX_EVENTS_PER_RULE)
+            events = rule_engine.evaluate(dbg["timeline"], cfg["rules"], config.MERGE_GAP_SEC, config.MAX_EVENTS_PER_RULE,
+                                          dbg.get("signals"))
             results[name] = {"verdict": "violation" if events else "no_violation",
                              "violations": [{"timecode_sec": round(e.t, 1), "type": e.rule["type"]} for e in events]}
             continue
