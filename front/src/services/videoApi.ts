@@ -68,7 +68,8 @@ export type WorkerVideo = {
   posterUrl?: string
 }
 
-const HISTORY_KEY = 'fortebank-compliance-investigations-v1'
+const HISTORY_KEY = 'dalel-ai-investigations-v1'
+const LEGACY_HISTORY_KEY = 'fortebank-compliance-investigations-v1'
 
 function isAnalysisStatus(value: unknown): value is AnalysisStatus {
   return value === 'processing' || value === 'done' || value === 'failed'
@@ -250,7 +251,7 @@ export async function listWorkerVideos(workerId: string): Promise<WorkerVideo[]>
 
 export function loadInvestigations(): StoredInvestigation[] {
   try {
-    const stored: unknown = JSON.parse(localStorage.getItem(HISTORY_KEY) ?? '[]')
+    const stored: unknown = JSON.parse(localStorage.getItem(HISTORY_KEY) ?? localStorage.getItem(LEGACY_HISTORY_KEY) ?? '[]')
     if (!Array.isArray(stored)) return []
     return stored.filter((item): item is StoredInvestigation => {
       if (!item || typeof item !== 'object') return false

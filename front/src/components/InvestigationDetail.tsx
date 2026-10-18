@@ -47,7 +47,7 @@ export function InvestigationDetail({ item, workers, onAssignWorker, onClose }: 
   function handleSave() {
     const saved = saveReview()
     if (!saved) return
-    window.dispatchEvent(new CustomEvent('forte-review-saved', { detail: { jobId: item.jobId } }))
+    window.dispatchEvent(new CustomEvent('dalel-review-saved', { detail: { jobId: item.jobId } }))
     onClose()
   }
 

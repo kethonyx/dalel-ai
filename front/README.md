@@ -1,4 +1,4 @@
-# ForteBank Compliance Intelligence · Frontend
+# Dalel AI · Frontend
 
 The React interface uploads video files, tracks analysis jobs, and provides Investigations and Employees workspaces. Workers and their video associations are managed through the protected API.
 

@@ -8,11 +8,12 @@ export type CaseReview = {
 }
 
 const emptyReview: CaseReview = { comment: '', eventDecisions: {}, savedAt: null }
-const reviewKey = (jobId: string) => `forte-investigation-review:${jobId}`
+const reviewKey = (jobId: string) => `dalel-investigation-review:${jobId}`
+const legacyReviewKey = (jobId: string) => `forte-investigation-review:${jobId}`
 
 export function getSavedReview(jobId: string): CaseReview {
   try {
-    const value: unknown = JSON.parse(localStorage.getItem(reviewKey(jobId)) ?? 'null')
+    const value: unknown = JSON.parse(localStorage.getItem(reviewKey(jobId)) ?? localStorage.getItem(legacyReviewKey(jobId)) ?? 'null')
     if (!value || typeof value !== 'object') return emptyReview
     const review = value as Record<string, unknown>
     const decisions: Record<string, ReviewDecision> = {}

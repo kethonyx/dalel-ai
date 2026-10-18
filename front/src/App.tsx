@@ -139,11 +139,11 @@ function IconButton({
   )
 }
 
-function ForteLogo() {
+function DalelLogo() {
   return (
-    <a className="brand" href="#video-analysis" aria-label="ForteBank Compliance Intelligence" title="ForteBank Compliance Intelligence">
+    <a className="brand" href="#video-analysis" aria-label="Dalel AI Compliance Intelligence" title="Dalel AI Compliance Intelligence">
       <span className="brand-symbol" aria-hidden="true"><i /><i /><i /></span>
-      <span className="brand-name">ForteBank</span>
+      <span className="brand-name">Dalel AI</span>
     </a>
   )
 }
@@ -175,8 +175,8 @@ function InvestigationGrid({
 
   useEffect(() => {
     const refreshReviews = () => setReviewRevision((revision) => revision + 1)
-    window.addEventListener('forte-review-saved', refreshReviews)
-    return () => window.removeEventListener('forte-review-saved', refreshReviews)
+    window.addEventListener('dalel-review-saved', refreshReviews)
+    return () => window.removeEventListener('dalel-review-saved', refreshReviews)
   }, [])
 
   const filterItems: { id: InvestigationFilter; label: string }[] = [
@@ -657,7 +657,7 @@ function App() {
   return (
     <div className="app-shell">
       <aside className="sidebar">
-        <ForteLogo />
+        <DalelLogo />
         <div className="workspace-switcher">
           <div className="workspace-mark"><ShieldCheck size={15} strokeWidth={1.8} /></div>
           <div className="workspace-switcher-copy"><span>Compliance</span><small>Operations</small></div>

@@ -1,13 +1,14 @@
 import { useEffect, useState, type ReactNode } from 'react'
 
 const posterCache = new Map<string, string>()
-const sessionPrefix = 'forte-investigation-poster:'
+const sessionPrefix = 'dalel-investigation-poster:'
+const legacySessionPrefix = 'forte-investigation-poster:'
 
 function getCachedPoster(jobId: string) {
   const memoryPoster = posterCache.get(jobId)
   if (memoryPoster) return memoryPoster
   try {
-    const storedPoster = sessionStorage.getItem(`${sessionPrefix}${jobId}`)
+    const storedPoster = sessionStorage.getItem(`${sessionPrefix}${jobId}`) ?? sessionStorage.getItem(`${legacySessionPrefix}${jobId}`)
     if (storedPoster) {
       posterCache.set(jobId, storedPoster)
       return storedPoster
