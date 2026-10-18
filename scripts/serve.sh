@@ -27,5 +27,7 @@ if [ ! -f front/dist/index.html ] && command -v npm >/dev/null; then
 fi
 
 export API_KEY=$(cat ~/.dalel_jury_key)
+# веса детектора людей (RT-DETR) берутся только из локального кэша, без запросов к huggingface.co
+export HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1
 export VLM_BACKEND=openai_local VLM_BASE_URL=$urls VLM_API_KEY=$keys
 exec .venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000
