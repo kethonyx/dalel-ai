@@ -238,7 +238,7 @@
     },
     {
       "id": "cash_without_id",
-      "enabled": false,
+      "enabled": true,
       "kind": "missing_before",
       "session": {
         "visitor": "yes"
@@ -259,8 +259,8 @@
         "url": "https://adilet.zan.kz/rus/docs/V1900019680",
         "verified": true
       },
-      "missing_min_frames": 1,
-      "disabled_reason": "В потоке видео удостоверение распознаётся ненадёжно: 0 попаданий и 4 ложных на датасете (Х-19, Х-37, Х-39, Х-45), docs/run_review.md."
+      "missing_min_frames": 2,
+      "note": "Шаг 1 сценария обслуживания: документ до денег. Документ засчитывается по 2 кадрам (одиночный «id_card» модель путает с купюрами, Х-2). Датасет: пропусков 2 -> 0 (Х-2, Х-34), ложных 8 -> 11 (Х-19, Х-37, Х-39). Включено осознанно: пропуск дороже ложного."
     },
     {
       "id": "bag_without_document",
