@@ -21,6 +21,11 @@ export POSTGRES_PORT=${POSTGRES_PORT:-5434}  # 5433 часто занят дру
 export DATABASE_URL=${DATABASE_URL:-postgresql://dalel:dalel_dev_password@127.0.0.1:$POSTGRES_PORT/dalel}
 docker compose up -d --wait db
 
+# фронт отдаётся самим сервисом на "/" (вход в API по cookie сессии интерфейса)
+if [ ! -f front/dist/index.html ] && command -v npm >/dev/null; then
+  (cd front && { [ -d node_modules ] || npm install --no-audit --no-fund; } && npm run build)
+fi
+
 export API_KEY=$(cat ~/.dalel_jury_key)
 export VLM_BACKEND=openai_local VLM_BASE_URL=$urls VLM_API_KEY=$keys
 exec .venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000

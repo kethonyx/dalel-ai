@@ -26,6 +26,9 @@ from . import config, db, pipeline, rules as rule_engine
 log = logging.getLogger("cashier")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 STATIC_DIR = Path(__file__).parent / "static"
+FRONT_DIR = config.BASE_DIR / "front" / "dist"  # собранный React-фронт (npm run build в front/)
+UI_COOKIE = "dalel_ui"
+UI_COOKIE_TTL = 12 * 3600
 
 _live: dict[UUID, dict] = {}
 _live_lock = threading.Lock()
@@ -108,8 +111,26 @@ def _valid_key(key: str | None) -> bool:
     return key is not None and secrets.compare_digest(key.encode(), config.API_KEY.encode())
 
 
-def require_key(x_api_key: str | None = Header(default=None)) -> None:
-    if not _valid_key(x_api_key):
+def _ui_cookie_value() -> str:
+    expires = int(time.time()) + UI_COOKIE_TTL
+    sig = hmac.new(config.API_KEY.encode(), f"ui:{expires}".encode(), hashlib.sha256).hexdigest()
+    return f"{expires}.{sig}"
+
+
+def _valid_ui_cookie(value: str | None) -> bool:
+    """Пропуск браузера, открывшего фронт с этого же сервиса: ключ в браузер не попадает."""
+    if not config.UI_OPEN or not value or "." not in value:
+        return False
+    expires, sig = value.split(".", 1)
+    if not expires.isdigit() or int(expires) < time.time():
+        return False
+    expected = hmac.new(config.API_KEY.encode(), f"ui:{expires}".encode(), hashlib.sha256).hexdigest()
+    return secrets.compare_digest(sig, expected)
+
+
+def require_key(request: Request, x_api_key: str | None = Header(default=None)) -> None:
+    # X-API-Key (жюри) или cookie сессии интерфейса (фронт, отданный с "/"); иначе 401
+    if not (_valid_key(x_api_key) or _valid_ui_cookie(request.cookies.get(UI_COOKIE))):
         raise HTTPException(status_code=401, detail="Invalid or missing X-API-Key")
 
 
@@ -430,9 +451,26 @@ if config.UI_OPEN:
         }
 
 
-@app.get("/", include_in_schema=False)
-def index():
+@app.get("/live", include_in_schema=False)
+def live_index():
+    """Прежняя страница с живым просмотром ответов модели по кадрам."""
     return FileResponse(STATIC_DIR / "index.html")
 
 
+@app.get("/", include_in_schema=False)
+def index(request: Request):
+    front = FRONT_DIR / "index.html"
+    if not front.is_file():
+        return FileResponse(STATIC_DIR / "index.html")
+    resp = FileResponse(front, headers={"Cache-Control": "no-cache"})
+    if config.UI_OPEN:
+        secure = request.headers.get("x-forwarded-proto", request.url.scheme) == "https"
+        resp.set_cookie(UI_COOKIE, _ui_cookie_value(), max_age=UI_COOKIE_TTL, httponly=True,
+                        samesite="lax", secure=secure)
+    return resp
+
+
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+if FRONT_DIR.is_dir():
+    # последним: маршруты API и /ui выше имеют приоритет; отсюда assets/, favicon.svg и т. п.
+    app.mount("/", StaticFiles(directory=FRONT_DIR), name="front")
