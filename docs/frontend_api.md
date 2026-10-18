@@ -115,11 +115,24 @@ function jumpTo(event) {
 
 ### Работники и их видео
 
-Эти маршруты требуют `X-API-Key`. Браузерный фронтенд должен вызывать их через
-серверный прокси, который добавляет ключ. Не включайте `API_KEY` в клиентскую сборку.
+Эти маршруты принимают `X-API-Key` или подписанную cookie сессии интерфейса.
+Не включайте `API_KEY` в клиентскую сборку.
 
 1. `GET /api/v1/workers?limit=100&offset=0` возвращает `items` работников с
-   `worker_id`, `name`, `created_at` и количеством привязанных видео (`video_count`).
+   `worker_id`, `name`, `created_at`, `video_count`, `analyzed_video_count`,
+   `violation_count` и `rating`.
+   `GET /api/v1/workers/{worker_id}/rating` возвращает те же поля для одного работника.
+   Для неизвестного `worker_id` ответ `404`.
+
+   `rating` — число от 0 до 100, рассчитанное как
+   `100 × analyzed_video_count / (analyzed_video_count + violation_count)`
+   и округлённое до одного знака.
+   Если завершённых анализов нет, `rating` равен `null`. `video_count` учитывает
+   все загруженные видео, а `analyzed_video_count` — только видео с завершённым
+   анализом. `violation_count` считает события из **последнего завершённого**
+   анализа каждого видео; повторы и незавершённые задания не удваивают счётчик.
+   Это предварительная оценка по признакам, найденным моделью, а не итоговая
+   оценка работы сотрудника.
 2. `POST /api/v1/new-worker` с JSON `{"name":"Аида Садыкова"}` создаёт работника.
    Ответ `201`:
 
@@ -127,7 +140,7 @@ function jumpTo(event) {
    {"worker_id":"0fdc4dfb-ef71-473e-958b-68efc6addf70","name":"Аида Садыкова","created_at":"2026-10-17T13:00:00+00:00"}
    ```
 
-2. `POST /api/v1/workers/{worker_id}/videos` принимает `multipart/form-data`, поле
+3. `POST /api/v1/workers/{worker_id}/videos` принимает `multipart/form-data`, поле
    `file`, сохраняет привязку и запускает анализ. Ответ `202` содержит
    `video_id`, `job_id`, `status`, `worker_id`.
 4. `GET /api/v1/workers/{worker_id}/videos?limit=100&offset=0` возвращает

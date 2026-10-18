@@ -126,7 +126,7 @@ class SavedVideoAPI(unittest.TestCase):
                         self.assertEqual(client.get("/api/v1/workers").status_code, 401)
                         workers = client.get("/api/v1/workers", headers=headers).json()["items"]
                         created = [item for item in workers if UUID(item["worker_id"]) in worker_ids]
-                        self.assertEqual([item["name"] for item in created], ["Кассир А", "Кассир Б"])
+                        self.assertEqual({item["name"] for item in created}, {"Кассир А", "Кассир Б"})
                         self.assertTrue(all(item["created_at"] for item in created))
 
                         missing = uuid4()
@@ -160,6 +160,67 @@ class SavedVideoAPI(unittest.TestCase):
                             conn.execute("DELETE FROM videos WHERE id = %s", (video_id,))
                         for worker_id in worker_ids:
                             conn.execute("DELETE FROM worker WHERE id = %s", (worker_id,))
+
+    def test_worker_rating_uses_latest_completed_analysis(self):
+        worker_ids = [uuid4(), uuid4()]
+        video_ids = [uuid4() for _ in range(3)]
+        with patch.object(config, "DATABASE_URL", os.environ["TEST_DATABASE_URL"]), \
+             patch("app.main.db.requeue_unfinished", return_value=[]):
+            try:
+                db.add_worker(worker_ids[0], "Рейтинг А")
+                db.add_worker(worker_ids[1], "Рейтинг Б")
+                for index, video_id in enumerate(video_ids):
+                    db.add_video(video_id, f"rating-test/{video_id}.mov", f"clip-{index}.mov",
+                                 "video/quicktime", 10, 2.0, worker_ids[0])
+
+                def finish(video_id, violations):
+                    run_id = uuid4()
+                    db.add_run(run_id, video_id)
+                    db.finish_run(run_id, {"job_id": str(run_id), "status": "done",
+                                           "verdict": "violation" if violations else "no_violation",
+                                           "violations": [{"type": "Событие", "timecode_sec": float(i),
+                                                           "description": "Признак нарушения"}
+                                                          for i in range(violations)]}, [])
+                    return run_id
+
+                old_run = finish(video_ids[0], 2)
+                with db.connection() as conn:
+                    conn.execute("UPDATE analysis_runs SET created_at = now() - interval '1 day' WHERE id = %s",
+                                 (old_run,))
+                finish(video_ids[0], 1)
+                finish(video_ids[1], 0)
+                failed_run = uuid4()
+                db.add_run(failed_run, video_ids[0])
+                db.fail_run(failed_run, "Ошибка повтора")
+
+                with TestClient(app) as client:
+                    headers = {"X-API-Key": config.API_KEY}
+                    self.assertEqual(client.get(f"/api/v1/workers/{worker_ids[0]}/rating").status_code, 401)
+                    self.assertEqual(client.get(f"/api/v1/workers/{uuid4()}/rating",
+                                                headers=headers).status_code, 404)
+                    rating = client.get(f"/api/v1/workers/{worker_ids[0]}/rating", headers=headers).json()
+                    self.assertEqual(rating["video_count"], 3)
+                    self.assertEqual(rating["analyzed_video_count"], 2)
+                    self.assertEqual(rating["violation_count"], 1)
+                    self.assertEqual(rating["rating"], 66.7)
+                    empty = client.get(f"/api/v1/workers/{worker_ids[1]}/rating", headers=headers).json()
+                    self.assertEqual(empty["video_count"], 0)
+                    self.assertIsNone(empty["rating"])
+                    listed = client.get("/api/v1/workers", headers=headers).json()["items"]
+                    self.assertEqual(next(item for item in listed if item["worker_id"] == str(worker_ids[0])), rating)
+
+                    db.set_video_worker(video_ids[1], worker_ids[1])
+                    moved = client.get(f"/api/v1/workers/{worker_ids[0]}/rating", headers=headers).json()
+                    self.assertEqual((moved["video_count"], moved["analyzed_video_count"],
+                                      moved["violation_count"], moved["rating"]), (2, 1, 1, 50.0))
+                    receiving = client.get(f"/api/v1/workers/{worker_ids[1]}/rating", headers=headers).json()
+                    self.assertEqual((receiving["video_count"], receiving["rating"]), (1, 100.0))
+            finally:
+                with db.connection() as conn:
+                    for video_id in video_ids:
+                        conn.execute("DELETE FROM videos WHERE id = %s", (video_id,))
+                    for worker_id in worker_ids:
+                        conn.execute("DELETE FROM worker WHERE id = %s", (worker_id,))
 
     @unittest.skipUnless(shutil.which("ffmpeg") and shutil.which("ffprobe"), "нужны ffmpeg и ffprobe")
     def test_real_mov_through_jury_api(self):

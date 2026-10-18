@@ -12,6 +12,23 @@ from psycopg.types.json import Jsonb
 from . import config
 
 
+_WORKER_STATS_SQL = """SELECT w.id, w.name, w.created_at,
+    COUNT(v.id)::int AS video_count,
+    COUNT(r.id)::int AS analyzed_video_count,
+    COALESCE(SUM(e.violation_count), 0)::int AS violation_count
+    FROM worker w
+    LEFT JOIN videos v ON v.worker_id = w.id
+    LEFT JOIN LATERAL (
+        SELECT id FROM analysis_runs
+        WHERE video_id = v.id AND status = 'done'
+        ORDER BY created_at DESC, id DESC LIMIT 1
+    ) r ON true
+    LEFT JOIN LATERAL (
+        SELECT COUNT(*)::int AS violation_count FROM events WHERE run_id = r.id
+    ) e ON true
+    GROUP BY w.id"""
+
+
 @contextmanager
 def connection():
     with psycopg.connect(config.DATABASE_URL, row_factory=dict_row, connect_timeout=5) as conn:
@@ -37,10 +54,15 @@ def get_worker(worker_id: UUID) -> dict | None:
 
 def list_workers(limit: int = 100, offset: int = 0) -> list[dict]:
     with connection() as conn:
-        return conn.execute("""SELECT w.id, w.name, w.created_at, COUNT(v.id)::int AS video_count
-            FROM worker w LEFT JOIN videos v ON v.worker_id = w.id
-            GROUP BY w.id ORDER BY w.created_at DESC, w.id DESC
-            LIMIT %s OFFSET %s""", (limit, offset)).fetchall()
+        return conn.execute(_WORKER_STATS_SQL +
+                            " ORDER BY created_at DESC, id DESC LIMIT %s OFFSET %s",
+                            (limit, offset)).fetchall()
+
+
+def get_worker_stats(worker_id: UUID) -> dict | None:
+    with connection() as conn:
+        return conn.execute("SELECT * FROM (" + _WORKER_STATS_SQL +
+                            ") AS stats WHERE id = %s", (worker_id,)).fetchone()
 
 
 def set_video_worker(video_id: UUID, worker_id: UUID | None) -> bool:

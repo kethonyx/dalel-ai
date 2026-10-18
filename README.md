@@ -76,6 +76,7 @@ curl http://127.0.0.1:8000/api/v1/jobs/3f2a9c1e -H "X-API-Key: $API_KEY"
 | `GET` | `/api/v1/videos/{video_id}/stream` | исходный файл; `Range` для перемотки |
 | `POST` | `/api/v1/new-worker` | создать работника по JSON `{"name":"..."}` |
 | `GET` | `/api/v1/workers` | получить всех работников |
+| `GET` | `/api/v1/workers/{worker_id}/rating` | рейтинг и счётчики видео и найденных событий |
 | `POST` | `/api/v1/workers/{worker_id}/videos` | загрузить видео работника и запустить анализ |
 | `GET` | `/api/v1/workers/{worker_id}/videos` | список видео работника |
 

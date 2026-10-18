@@ -265,6 +265,17 @@ def _video_view(video: dict) -> dict:
             "poster_url": _signed_poster_url(video["id"])}
 
 
+def _worker_stats_view(worker: dict) -> dict:
+    analyzed = worker["analyzed_video_count"]
+    violations = worker["violation_count"]
+    return {"worker_id": str(worker["id"]), "name": worker["name"],
+            "created_at": worker["created_at"].isoformat(),
+            "video_count": worker["video_count"],
+            "analyzed_video_count": analyzed,
+            "violation_count": violations,
+            "rating": round(100 * analyzed / (analyzed + violations), 1) if analyzed else None}
+
+
 def _selected_run(video_id: UUID, run_id: UUID | None) -> dict | None:
     if db.get_video(video_id) is None:
         raise HTTPException(status_code=404, detail="Video not found")
@@ -300,10 +311,15 @@ def new_worker(body: WorkerCreate):
 
 @app.get("/api/v1/workers", dependencies=[Depends(require_key)])
 def list_workers(limit: int = Query(100, ge=1, le=100), offset: int = Query(0, ge=0)):
-    return {"items": [{"worker_id": str(worker["id"]), "name": worker["name"],
-                       "created_at": worker["created_at"].isoformat(),
-                       "video_count": worker["video_count"]}
-                      for worker in db.list_workers(limit, offset)]}
+    return {"items": [_worker_stats_view(worker) for worker in db.list_workers(limit, offset)]}
+
+
+@app.get("/api/v1/workers/{worker_id}/rating", dependencies=[Depends(require_key)])
+def worker_rating(worker_id: UUID):
+    worker = db.get_worker_stats(worker_id)
+    if worker is None:
+        raise HTTPException(status_code=404, detail="Worker not found")
+    return _worker_stats_view(worker)
 
 
 @app.patch("/api/v1/videos/{video_id}/worker", dependencies=[Depends(require_key)])
